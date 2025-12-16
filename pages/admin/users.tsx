@@ -9,6 +9,8 @@ type User = {
     email: string
     firstName: string
     lastName: string
+    slackId?: string
+    isAdmin: boolean
     createdAt: string
 }
 
@@ -16,8 +18,9 @@ export default function Users() {
     const { data: session, status } = useSession()
     const router = useRouter()
     const [users, setUsers] = useState<User[]>([])
-    const [form, setForm] = useState({ email: '', password: '', firstName: '', lastName: '' })
+    const [form, setForm] = useState({ email: '', password: '', firstName: '', lastName: '', slackId: '', isAdmin: false })
     const [loading, setLoading] = useState(true)
+    const [syncing, setSyncing] = useState(false)
     const [editingId, setEditingId] = useState<number | null>(null)
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; userId: number | null }>({ show: false, userId: null })
 
@@ -41,23 +44,68 @@ export default function Users() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        if (editingId) {
-            await fetch(`/api/users/${editingId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form),
-            })
-            setEditingId(null)
-        } else {
-            await fetch('/api/users', {
+        try {
+            if (editingId) {
+                const res = await fetch(`/api/users/${editingId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(form),
+                })
+                if (!res.ok) {
+                    const error = await res.json()
+                    alert(error.error || 'Failed to update user')
+                    return
+                }
+                setEditingId(null)
+            } else {
+                const res = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(form),
+                })
+                if (!res.ok) {
+                    const error = await res.json()
+                    alert(error.error || 'Failed to create user')
+                    return
+                }
+            }
+
+            setForm({ email: '', password: '', firstName: '', lastName: '', slackId: '', isAdmin: false })
+            await fetchUsers()
+        } catch (error: any) {
+            alert('An error occurred: ' + (error.message || 'Unknown error'))
+        }
+    }
+
+    const handleSync = async () => {
+        setSyncing(true)
+        try {
+            const res = await fetch('/api/users/sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form),
             })
+            const data = await res.json()
+            if (res.ok) {
+                const errorCount = data.results.errors?.length || 0
+                let message = `Sync completed!\nCreated: ${data.results.created}\nUpdated: ${data.results.updated}`
+                if (errorCount > 0) {
+                    message += `\n\nErrors: ${errorCount}`
+                    if (errorCount <= 10) {
+                        message += '\n\n' + data.results.errors.join('\n')
+                    } else {
+                        message += `\n\nFirst 10 errors:\n${data.results.errors.slice(0, 10).join('\n')}\n\n... and ${errorCount - 10} more`
+                    }
+                }
+                alert(message)
+                await fetchUsers()
+            } else {
+                alert(data.error || 'Failed to sync users')
+            }
+        } catch (error: any) {
+            alert('An error occurred: ' + (error.message || 'Unknown error'))
+        } finally {
+            setSyncing(false)
         }
-
-        setForm({ email: '', password: '', firstName: '', lastName: '' })
-        fetchUsers()
     }
 
     const handleEdit = (user: User) => {
@@ -65,6 +113,8 @@ export default function Users() {
             email: user.email,
             firstName: user.firstName,
             lastName: user.lastName,
+            slackId: user.slackId || '',
+            isAdmin: user.isAdmin || false,
             password: '' // Don't populate password for security
         })
         setEditingId(user.id)
@@ -72,7 +122,7 @@ export default function Users() {
 
     const handleCancelEdit = () => {
         setEditingId(null)
-        setForm({ email: '', password: '', firstName: '', lastName: '' })
+        setForm({ email: '', password: '', firstName: '', lastName: '', slackId: '', isAdmin: false })
     }
 
     const handleDeleteClick = (e: React.MouseEvent, id: number) => {
@@ -129,8 +179,8 @@ export default function Users() {
                                     <input type="text" required className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Email <span className="text-red-500">*</span></label>
-                                    <input type="email" required className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Email</label>
+                                    <input type="email" className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="optional" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
@@ -143,6 +193,28 @@ export default function Users() {
                                         value={form.password}
                                         onChange={e => setForm({ ...form, password: e.target.value })}
                                     />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Slack ID</label>
+                                    <input
+                                        type="text"
+                                        placeholder="U12345678"
+                                        className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-mono"
+                                        value={form.slackId}
+                                        onChange={e => setForm({ ...form, slackId: e.target.value })}
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="isAdmin"
+                                        className="w-4 h-4 rounded bg-slate-900 border-slate-600 text-indigo-600 focus:ring-indigo-500"
+                                        checked={form.isAdmin}
+                                        onChange={e => setForm({ ...form, isAdmin: e.target.checked })}
+                                    />
+                                    <label htmlFor="isAdmin" className="text-sm text-slate-300">
+                                        Admin User
+                                    </label>
                                 </div>
                                 <div className="flex gap-2">
                                     <button type="submit" className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-semibold shadow-lg hover:bg-slate-800 transition-all active:scale-95">
@@ -179,8 +251,23 @@ export default function Users() {
                             users.map(u => (
                                 <div key={u.id} className="group bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-700 flex justify-between items-center hover:shadow-md transition-all">
                                     <div>
-                                        <p className="font-bold text-lg text-slate-100">{u.firstName} {u.lastName}</p>
-                                        <p className="text-slate-500 text-sm font-mono">{u.email}</p>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <p className="font-bold text-lg text-slate-100">{u.firstName} {u.lastName}</p>
+                                            {u.isAdmin && (
+                                                <span className="px-2 py-1 text-xs font-bold bg-indigo-500 text-white rounded-full">
+                                                    ADMIN
+                                                </span>
+                                            )}
+                                        </div>
+                                        {u.email && (
+                                            <p className="text-slate-500 text-sm font-mono">{u.email}</p>
+                                        )}
+                                        {u.slackId && (
+                                            <p className="text-slate-500 text-xs font-mono">{u.email ? 'Slack: ' : ''}{u.slackId}</p>
+                                        )}
+                                        {!u.email && !u.slackId && (
+                                            <p className="text-slate-500 text-xs italic">No email or Slack ID</p>
+                                        )}
                                     </div>
                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button
@@ -246,6 +333,16 @@ export default function Users() {
                     </div>
                 </div>
             )}
+
+            {/* Fixed Sync Button */}
+            <button
+                onClick={handleSync}
+                disabled={syncing}
+                className={`fixed bottom-6 right-6 px-6 py-3 rounded-full font-bold text-white transition-all shadow-2xl hover:shadow-3xl active:scale-95 text-sm z-50 ${syncing ? 'bg-slate-400 cursor-not-allowed' : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
+                    }`}
+            >
+                {syncing ? 'Syncing...' : 'Sync from Slack'}
+            </button>
         </div>
     )
 }

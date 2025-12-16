@@ -29,9 +29,21 @@ export default async function handler(
     }
 
     if (req.method === 'PUT') {
-        const { email, password, firstName, lastName } = req.body
+        const { email, password, firstName, lastName, slackId, isAdmin } = req.body
 
-        let data: any = { email, firstName, lastName }
+        // Require at least email or slackId
+        if (!email && !slackId) {
+            // Check existing user to see if they have email or slackId
+            const existing = await prisma.user.findUnique({
+                where: { id: Number(id) },
+                select: { email: true, slackId: true }
+            })
+            if (!existing?.email && !existing?.slackId) {
+                return res.status(400).json({ error: "Email or Slack ID is required" })
+            }
+        }
+
+        let data: any = { email: email || null, firstName, lastName, slackId: slackId || null, isAdmin: isAdmin || false }
         if (password) {
             data.password = await bcrypt.hash(password, 10)
         }
@@ -45,6 +57,9 @@ export default async function handler(
             const { password: _, ...result } = user
             return res.status(200).json(result)
         } catch (e: any) {
+            if (e.code === 'P2002') {
+                return res.status(400).json({ error: "Email or Slack ID already exists" })
+            }
             return res.status(500).json({ error: e.message })
         }
     }

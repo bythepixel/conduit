@@ -60,10 +60,12 @@ model MappingSlackChannel {
 
 model User {
   id        Int      @id @default(autoincrement())
-  email     String   @unique
+  email     String?  @unique
   password  String
   firstName String
   lastName  String
+  slackId   String?  @unique
+  isAdmin   Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
