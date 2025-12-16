@@ -25,47 +25,64 @@ export default async function handler(
     }
 
     try {
-        const { mappingId } = req.body
+        const { mappingId, test } = req.body
         const whereClause = mappingId ? { id: Number(mappingId) } : {}
-        const mappings = await prisma.mapping.findMany({ where: whereClause })
+        const mappings = await prisma.mapping.findMany({ 
+            where: whereClause,
+            include: {
+                slackChannels: {
+                    include: {
+                        slackChannel: true
+                    }
+                },
+                hubspotCompany: true
+            }
+        })
         const results = []
+        const isTestMode = test === true
 
         for (const mapping of mappings) {
-            try {
-                // 1. Fetch Slack Messages (Last 24 hours)
-                const yesterday = new Date()
-                yesterday.setDate(yesterday.getDate() - 1)
-
-                let history
+            // Process each channel in the mapping
+            for (const mappingChannel of mapping.slackChannels) {
                 try {
-                    history = await slack.conversations.history({
-                        channel: mapping.slackChannelId,
-                        oldest: (yesterday.getTime() / 1000).toString(),
-                    })
-                } catch (err: any) {
-                    if (err.data?.error === 'not_in_channel') {
-                        try {
-                            // Helper log
-                            console.log(`Bot not in channel ${mapping.slackChannelId}, attempting to join...`)
-                            await slack.conversations.join({ channel: mapping.slackChannelId })
+                    // 1. Fetch Slack Messages (Last 24 hours)
+                    const yesterday = new Date()
+                    yesterday.setDate(yesterday.getDate() - 1)
 
-                            // Retry fetch
-                            history = await slack.conversations.history({
-                                channel: mapping.slackChannelId,
-                                oldest: (yesterday.getTime() / 1000).toString(),
-                            })
-                        } catch (joinErr: any) {
-                            throw new Error(`Slack API Error (Auto-Join Failed): ${joinErr.message}`)
+                    let history
+                    try {
+                        history = await slack.conversations.history({
+                            channel: mappingChannel.slackChannel.channelId,
+                            oldest: (yesterday.getTime() / 1000).toString(),
+                        })
+                    } catch (err: any) {
+                        if (err.data?.error === 'not_in_channel') {
+                            try {
+                                // Helper log
+                                console.log(`Bot not in channel ${mappingChannel.slackChannel.channelId}, attempting to join...`)
+                                await slack.conversations.join({ channel: mappingChannel.slackChannel.channelId })
+
+                                // Retry fetch
+                                history = await slack.conversations.history({
+                                    channel: mappingChannel.slackChannel.channelId,
+                                    oldest: (yesterday.getTime() / 1000).toString(),
+                                })
+                            } catch (joinErr: any) {
+                                throw new Error(`Slack API Error (Auto-Join Failed): ${joinErr.message}`)
+                            }
+                        } else {
+                            throw new Error(`Slack API Error: ${err.message}`)
                         }
-                    } else {
-                        throw new Error(`Slack API Error: ${err.message}`)
                     }
-                }
 
-                if (!history.messages || history.messages.length === 0) {
-                    results.push({ id: mapping.id, status: 'No messages to sync' })
-                    continue
-                }
+                    if (!history.messages || history.messages.length === 0) {
+                        results.push({ 
+                            id: mapping.id, 
+                            channelId: mappingChannel.slackChannel.channelId,
+                            status: isTestMode ? 'No messages to test' : 'No messages to sync' 
+                        })
+                        continue
+                    }
 
                 // 2. Generate "Summary" (Digest of messages)
 
@@ -92,16 +109,24 @@ export default async function handler(
                     return `${userName}: ${text}`
                 }).join('\n')
 
+                // Fetch the active prompt from database
+                const activePrompt = await prisma.prompt.findFirst({
+                    where: { isActive: true }
+                })
+
+                // Use active prompt if available, otherwise fallback to default
+                const systemPrompt = activePrompt?.content || 'Summarize the following Slack conversation in a short, informative paragraph. The input format is "Name: Message". Use the names in your summary to attribute key points.'
+
                 let summaryContent
                 try {
                     const completion = await openai.createChatCompletion({
                         messages: [
-                            { role: 'system', content: 'Summarize the following Slack conversation in a short, informative paragraph. The input format is "Name: Message". Use the names in your summary to attribute key points.' },
+                            { role: 'system', content: systemPrompt },
                             { role: 'user', content: messagesText }
                         ],
                         model: 'gpt-3.5-turbo',
                     })
-                    summaryContent = `Daily Slack Summary for ${mapping.slackChannelName || mapping.slackChannelId}:\n\n${completion.data.choices[0].message?.content}`
+                    summaryContent = `Daily Slack Summary for ${mappingChannel.slackChannel.name || mappingChannel.slackChannel.channelId}:\n\n${completion.data.choices[0].message?.content}`
                 } catch (openaiErr: any) {
                     // console.error('OpenAI Error', openaiErr) 
                     // v3 errors often in openaiErr.response.data
@@ -111,32 +136,12 @@ export default async function handler(
                     summaryContent = `Daily Slack Summary (Fallback): \n\n${fallbackLines.join('\n')}\n\n(ChatGPT Summary Failed: ${msg})`
                 }
 
-                // 3. Create Note in HubSpot
-                // HubSpot Notes are "Engagements" or CRM Objects.
-                // Using CRM Objects API for Notes
+                // 3. Create Note in HubSpot (skip if test mode)
+                if (!isTestMode) {
+                    // HubSpot Notes are "Engagements" or CRM Objects.
+                    // Using CRM Objects API for Notes
 
-                const noteInput = {
-                    properties: {
-                        hs_timestamp: Date.now().toString(),
-                        hs_note_body: summaryContent
-                    },
-                    associations: [
-                        {
-                            to: { id: mapping.hubspotCompanyId },
-                            types: [
-                                { associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 190 } // 190 is Company to Note? Or Note to Company?
-                                // Standard association for Note -> Company is likely needed.
-                                // Actually, creating a note via CRM API v3:
-                            ]
-                        }
-                    ]
-                }
-
-                // Wait, associating via create is simpler if we know the def.
-                // Note to Company: 'note_to_company'
-
-                try {
-                    await hubspot.crm.objects.notes.basicApi.create({
+                    const noteInput = {
                         properties: {
                             hs_timestamp: Date.now().toString(),
                             hs_note_body: summaryContent
@@ -144,33 +149,62 @@ export default async function handler(
                         associations: [
                             {
                                 to: { id: mapping.hubspotCompanyId },
+                                types: [
+                                    { associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 190 } // 190 is Company to Note? Or Note to Company?
+                                    // Standard association for Note -> Company is likely needed.
+                                    // Actually, creating a note via CRM API v3:
+                                ]
+                            }
+                        ]
+                    }
+
+                    // Wait, associating via create is simpler if we know the def.
+                    // Note to Company: 'note_to_company'
+
+                    try {
+                        await hubspot.crm.objects.notes.basicApi.create({
+                            properties: {
+                                hs_timestamp: Date.now().toString(),
+                                hs_note_body: summaryContent
+                            },
+                        associations: [
+                            {
+                                to: { id: mapping.hubspotCompany.companyId },
                                 types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 190 }] // 190 is Note to Company
                             }
                         ]
+                        })
+                    } catch (err: any) {
+                        throw new Error(`HubSpot API Error: ${err.message}`)
+                    }
+
+                    // Update last synced
+                    await prisma.mapping.update({
+                        where: { id: mapping.id },
+                        data: { lastSyncedAt: new Date() }
                     })
-                } catch (err: any) {
-                    throw new Error(`HubSpot API Error: ${err.message}`)
                 }
 
-                // Update last synced
-                await prisma.mapping.update({
-                    where: { id: mapping.id },
-                    data: { lastSyncedAt: new Date() }
-                })
+                    results.push({
+                        id: mapping.id,
+                        channelId: mappingChannel.slackChannel.channelId,
+                        status: isTestMode ? 'Test Complete' : 'Synced',
+                        summary: summaryContent,
+                        destination: {
+                            name: mapping.hubspotCompany.name,
+                            id: mapping.hubspotCompany.companyId
+                        }
+                    })
 
-                results.push({
-                    id: mapping.id,
-                    status: 'Synced',
-                    summary: summaryContent,
-                    destination: {
-                        name: mapping.hubspotCompanyName,
-                        id: mapping.hubspotCompanyId
-                    }
-                })
-
-            } catch (error: any) {
-                console.error(`Error syncing mapping ${mapping.id}:`, error)
-                results.push({ id: mapping.id, status: 'Failed', error: error.message })
+                } catch (error: any) {
+                    console.error(`Error ${isTestMode ? 'testing' : 'syncing'} mapping ${mapping.id} channel ${mappingChannel.slackChannel.channelId}:`, error)
+                    results.push({ 
+                        id: mapping.id, 
+                        channelId: mappingChannel.slackChannel.channelId,
+                        status: 'Failed', 
+                        error: error.message 
+                    })
+                }
             }
         }
 

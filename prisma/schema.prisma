@@ -7,15 +7,55 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Cadence {
+  daily
+  weekly
+  monthly
+}
+
+model SlackChannel {
+  id        Int                  @id @default(autoincrement())
+  channelId String               @unique
+  name      String?
+  mappings  MappingSlackChannel[]
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+}
+
+model HubspotCompany {
+  id        Int       @id @default(autoincrement())
+  companyId String    @unique
+  name      String?
+  mappings  Mapping[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
 model Mapping {
-  id                Int      @id @default(autoincrement())
-  slackChannelId    String
-  hubspotCompanyId  String
-  slackChannelName  String?
-  hubspotCompanyName String?
+  id                Int                  @id @default(autoincrement())
+  title             String?
+  hubspotCompanyId  Int
+  hubspotCompany    HubspotCompany      @relation(fields: [hubspotCompanyId], references: [id], onDelete: Cascade)
+  slackChannels     MappingSlackChannel[]
+  cadence           Cadence             @default(daily)
   lastSyncedAt      DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([hubspotCompanyId])
+}
+
+model MappingSlackChannel {
+  id            Int          @id @default(autoincrement())
+  mappingId     Int
+  slackChannelId Int
+  mapping       Mapping      @relation(fields: [mappingId], references: [id], onDelete: Cascade)
+  slackChannel  SlackChannel @relation(fields: [slackChannelId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+
+  @@unique([mappingId, slackChannelId])
+  @@index([mappingId])
+  @@index([slackChannelId])
 }
 
 model User {
@@ -24,6 +64,15 @@ model User {
   password  String
   firstName String
   lastName  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Prompt {
+  id        Int      @id @default(autoincrement())
+  name      String
+  content   String
+  isActive  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
