@@ -1,4 +1,5 @@
-import { Cadence } from '@prisma/client'
+// Note: Cadence type will be available after running: npx prisma generate
+type Cadence = 'daily' | 'weekly' | 'monthly'
 
 export interface CadenceFilterResult {
     shouldSync: boolean

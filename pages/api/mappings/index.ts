@@ -1,16 +1,18 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../lib/prisma'
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "../auth/[...nextauth]"
+import { requireAuth } from '../../../lib/middleware/auth'
+import { validateMethod } from '../../../lib/utils/methodValidator'
+import { handleError } from '../../../lib/utils/errorHandler'
+import { VALID_CADENCES, DEFAULT_CADENCE } from '../../../lib/constants'
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
-    const session = await getServerSession(req, res, authOptions)
-    if (!session) {
-        return res.status(401).json({ error: "Unauthorized" })
-    }
+    const session = await requireAuth(req, res)
+    if (!session) return
+
+    if (!validateMethod(req, res, ['GET', 'POST'])) return
 
     if (req.method === 'GET') {
         const mappings = await prisma.mapping.findMany({
@@ -58,8 +60,7 @@ export default async function handler(
             }
 
             // Validate cadence
-            const validCadences = ['daily', 'weekly', 'monthly']
-            const cadenceValue = cadence && validCadences.includes(cadence) ? cadence : 'daily'
+            const cadenceValue = cadence && VALID_CADENCES.includes(cadence as any) ? cadence : DEFAULT_CADENCE
 
             // Create mapping with multiple channels
             const mapping = await prisma.mapping.create({
@@ -84,11 +85,7 @@ export default async function handler(
             })
             return res.status(201).json(mapping)
         } catch (e: any) {
-            console.error('Error creating mapping:', e)
-            return res.status(500).json({ error: e.message })
+            return handleError(e, res)
         }
     }
-
-    res.setHeader('Allow', ['GET', 'POST'])
-    res.status(405).end(`Method ${req.method} Not Allowed`)
 }

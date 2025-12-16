@@ -1,23 +1,24 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../lib/prisma'
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "../auth/[...nextauth]"
+import { requireAuth } from '../../../lib/middleware/auth'
+import { validateMethod } from '../../../lib/utils/methodValidator'
+import { handleError } from '../../../lib/utils/errorHandler'
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
-    const session = await getServerSession(req, res, authOptions)
-    if (!session) {
-        return res.status(401).json({ error: "Unauthorized" })
-    }
+    const session = await requireAuth(req, res)
+    if (!session) return
+
+    if (!validateMethod(req, res, ['DELETE', 'PUT'])) return
 
     const { id } = req.query
 
     if (req.method === 'DELETE') {
         try {
-            // Check if channel is used in any mappings
-            const mappingCount = await prisma.mapping.count({
+            // Check if channel is used in any mappings (through pivot table)
+            const mappingCount = await prisma.mappingSlackChannel.count({
                 where: { slackChannelId: Number(id) }
             })
 
@@ -32,10 +33,7 @@ export default async function handler(
             })
             return res.status(204).end()
         } catch (e: any) {
-            if (e.code === 'P2025') {
-                return res.status(404).json({ error: "Channel not found" })
-            }
-            return res.status(500).json({ error: e.message })
+            return handleError(e, res)
         }
     }
 
@@ -56,17 +54,8 @@ export default async function handler(
             })
             return res.status(200).json(channel)
         } catch (e: any) {
-            if (e.code === 'P2002') {
-                return res.status(400).json({ error: "Channel ID already exists" })
-            }
-            if (e.code === 'P2025') {
-                return res.status(404).json({ error: "Channel not found" })
-            }
-            return res.status(500).json({ error: e.message })
+            return handleError(e, res)
         }
     }
-
-    res.setHeader('Allow', ['DELETE', 'PUT'])
-    return res.status(405).end(`Method ${req.method} Not Allowed`)
 }
 

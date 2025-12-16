@@ -1,23 +1,23 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../lib/prisma'
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "../auth/[...nextauth]"
-import bcrypt from 'bcryptjs'
+import { requireAuth } from '../../../lib/middleware/auth'
+import { validateMethod } from '../../../lib/utils/methodValidator'
+import { handleError } from '../../../lib/utils/errorHandler'
+import { hashPassword } from '../../../lib/utils/password'
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
-    const session = await getServerSession(req, res, authOptions)
-    if (!session) {
-        return res.status(401).json({ error: "Unauthorized" })
-    }
+    const session = await requireAuth(req, res)
+    if (!session) return
+
+    if (!validateMethod(req, res, ['DELETE', 'PUT'])) return
 
     const { id } = req.query
 
     if (req.method === 'DELETE') {
-        // Prevent deleting yourself (optional but good practice)
-        // @ts-ignore
+        // Prevent deleting yourself
         if (Number(id) === Number(session.user.id)) {
             return res.status(400).json({ error: "Cannot delete your own account" })
         }
@@ -45,25 +45,27 @@ export default async function handler(
 
         let data: any = { email: email || null, firstName, lastName, slackId: slackId || null, isAdmin: isAdmin || false }
         if (password) {
-            data.password = await bcrypt.hash(password, 10)
+            data.password = await hashPassword(password)
         }
 
         try {
             const user = await prisma.user.update({
                 where: { id: Number(id) },
                 data,
+                select: {
+                    id: true,
+                    email: true,
+                    firstName: true,
+                    lastName: true,
+                    slackId: true,
+                    isAdmin: true,
+                    createdAt: true,
+                    updatedAt: true
+                }
             })
-            // @ts-ignore
-            const { password: _, ...result } = user
-            return res.status(200).json(result)
+            return res.status(200).json(user)
         } catch (e: any) {
-            if (e.code === 'P2002') {
-                return res.status(400).json({ error: "Email or Slack ID already exists" })
-            }
-            return res.status(500).json({ error: e.message })
+            return handleError(e, res)
         }
     }
-
-    res.setHeader('Allow', ['DELETE', 'PUT'])
-    return res.status(405).end(`Method ${req.method} Not Allowed`)
 }

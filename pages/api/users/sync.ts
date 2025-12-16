@@ -1,25 +1,21 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../lib/prisma'
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "../auth/[...nextauth]"
+import { requireAuth } from '../../../lib/middleware/auth'
+import { validateMethod } from '../../../lib/utils/methodValidator'
+import { generateTempPassword, hashPassword } from '../../../lib/utils/password'
 import { WebClient } from '@slack/web-api'
-import bcrypt from 'bcryptjs'
+import { getRequiredEnv } from '../../../lib/config/env'
 
-const slack = new WebClient(process.env.SLACK_BOT_TOKEN)
+const slack = new WebClient(getRequiredEnv('SLACK_BOT_TOKEN'))
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
-    const session = await getServerSession(req, res, authOptions)
-    if (!session) {
-        return res.status(401).json({ error: "Unauthorized" })
-    }
+    const session = await requireAuth(req, res)
+    if (!session) return
 
-    if (req.method !== 'POST') {
-        res.setHeader('Allow', ['POST'])
-        return res.status(405).end(`Method ${req.method} Not Allowed`)
-    }
+    if (!validateMethod(req, res, ['POST'])) return
 
     try {
         // Fetch all Slack users
@@ -115,7 +111,7 @@ export default async function handler(
                     
                     // Only update password if it's empty (don't overwrite existing passwords)
                     if (!existingUser.password) {
-                        updateData.password = await bcrypt.hash('temp-password-' + Date.now(), 10)
+                        updateData.password = await hashPassword(generateTempPassword())
                     }
 
                     // Only update if there are changes
@@ -137,7 +133,7 @@ export default async function handler(
                     }
                     
                     // Create new user with temporary password
-                    const tempPassword = await bcrypt.hash('temp-password-' + Date.now(), 10)
+                    const tempPassword = await hashPassword(generateTempPassword())
                     try {
                         await prisma.user.create({
                             data: {

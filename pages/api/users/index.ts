@@ -1,17 +1,19 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../lib/prisma'
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "../auth/[...nextauth]"
-import bcrypt from "bcryptjs"
+import { requireAuth } from '../../../lib/middleware/auth'
+import { validateMethod } from '../../../lib/utils/methodValidator'
+import { handleError } from '../../../lib/utils/errorHandler'
+import { hashPassword } from '../../../lib/utils/password'
+import { ERROR_MESSAGES } from '../../../lib/constants'
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
-    const session = await getServerSession(req, res, authOptions)
-    if (!session) {
-        return res.status(401).json({ error: "Unauthorized" })
-    }
+    const session = await requireAuth(req, res)
+    if (!session) return
+
+    if (!validateMethod(req, res, ['GET', 'POST'])) return
 
     if (req.method === 'GET') {
         const users = await prisma.user.findMany({
@@ -28,7 +30,7 @@ export default async function handler(
             return res.status(400).json({ error: "Email or Slack ID is required" })
         }
         
-        const hashedPassword = await bcrypt.hash(password, 10)
+        const hashedPassword = await hashPassword(password)
         try {
             const user = await prisma.user.create({
                 data: {
@@ -38,19 +40,21 @@ export default async function handler(
                     lastName,
                     slackId: slackId || null,
                     isAdmin: isAdmin || false
+                },
+                select: {
+                    id: true,
+                    email: true,
+                    firstName: true,
+                    lastName: true,
+                    slackId: true,
+                    isAdmin: true,
+                    createdAt: true,
+                    updatedAt: true
                 }
             })
-            // @ts-ignore
-            const { password: _, ...result } = user
-            return res.status(201).json(result)
+            return res.status(201).json(user)
         } catch (e: any) {
-            if (e.code === 'P2002') {
-                return res.status(400).json({ error: "Email or Slack ID already exists" })
-            }
-            return res.status(500).json({ error: e.message })
+            return handleError(e, res)
         }
     }
-
-    res.setHeader('Allow', ['GET', 'POST'])
-    return res.status(405).end(`Method ${req.method} Not Allowed`)
 }

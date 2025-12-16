@@ -1,6 +1,18 @@
 import { Client as HubSpotClient } from '@hubspot/api-client'
+import { getRequiredEnv } from '../config/env'
 
-const hubspot = new HubSpotClient({ accessToken: process.env.HUBSPOT_ACCESS_TOKEN })
+let hubspotClient: HubSpotClient | null = null
+
+/**
+ * Gets or creates the HubSpot Client instance
+ */
+function getHubSpotClient(): HubSpotClient {
+    if (!hubspotClient) {
+        const token = getRequiredEnv('HUBSPOT_ACCESS_TOKEN')
+        hubspotClient = new HubSpotClient({ accessToken: token })
+    }
+    return hubspotClient
+}
 
 /**
  * Creates a note in HubSpot associated with a company
@@ -11,6 +23,7 @@ export async function createCompanyNote(
 ): Promise<void> {
     try {
         console.log(`[HubSpot API] Creating note for company ${companyId}`)
+        const hubspot = getHubSpotClient()
         await hubspot.crm.objects.notes.basicApi.create({
             properties: {
                 hs_timestamp: Date.now().toString(),

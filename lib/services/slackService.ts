@@ -1,6 +1,18 @@
 import { WebClient } from '@slack/web-api'
+import { getRequiredEnv } from '../config/env'
 
-const slack = new WebClient(process.env.SLACK_BOT_TOKEN)
+let slackClient: WebClient | null = null
+
+/**
+ * Gets or creates the Slack WebClient instance
+ */
+function getSlackClient(): WebClient {
+    if (!slackClient) {
+        const token = getRequiredEnv('SLACK_BOT_TOKEN')
+        slackClient = new WebClient(token)
+    }
+    return slackClient
+}
 
 export interface SlackMessage {
     user?: string
@@ -27,6 +39,7 @@ export async function fetchChannelHistory(
 
     try {
         console.log(`[Slack API] Fetching conversation history for channel ${channelId}`)
+        const slack = getSlackClient()
         const history = await slack.conversations.history({
             channel: channelId,
             ...(oldest && { oldest }),
@@ -47,6 +60,7 @@ export async function fetchChannelHistory(
         if (err.data?.error === 'not_in_channel') {
             try {
                 console.log(`[Slack API] Bot not in channel ${channelId}, attempting to join...`)
+                const slack = getSlackClient()
                 await slack.conversations.join({ channel: channelId })
 
                 // Retry fetch after joining

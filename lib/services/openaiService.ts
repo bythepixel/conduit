@@ -1,9 +1,19 @@
 import { Configuration, OpenAIApi } from 'openai'
+import { getRequiredEnv } from '../config/env'
 
-const configuration = new Configuration({ 
-    apiKey: process.env.OPENAI_API_KEY || 'temp-dummy-key' 
-})
-const openai = new OpenAIApi(configuration)
+let openaiClient: OpenAIApi | null = null
+
+/**
+ * Gets or creates the OpenAI API client instance
+ */
+function getOpenAIClient(): OpenAIApi {
+    if (!openaiClient) {
+        const apiKey = getRequiredEnv('OPENAI_API_KEY')
+        const configuration = new Configuration({ apiKey })
+        openaiClient = new OpenAIApi(configuration)
+    }
+    return openaiClient
+}
 
 const DEFAULT_SYSTEM_PROMPT = 'Summarize the following Slack conversation in a short, informative paragraph. The input format is "Name: Message". Use the names in your summary to attribute key points.'
 
@@ -19,6 +29,7 @@ export async function generateSummary(
     
     try {
         console.log(`[OpenAI API] Creating chat completion${channelName ? ` for ${channelName}` : ''}`)
+        const openai = getOpenAIClient()
         const completion = await openai.createChatCompletion({
             messages: [
                 { role: 'system', content: prompt },
