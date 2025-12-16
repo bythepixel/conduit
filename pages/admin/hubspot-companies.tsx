@@ -24,6 +24,7 @@ export default function HubspotCompanies() {
     const [editingId, setEditingId] = useState<number | null>(null)
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; companyId: number | null }>({ show: false, companyId: null })
     const [syncing, setSyncing] = useState(false)
+    const [search, setSearch] = useState('')
 
     useEffect(() => {
         if (status === "unauthenticated") {
@@ -212,55 +213,86 @@ export default function HubspotCompanies() {
                     </div>
 
                     {/* List */}
-                    <div className="space-y-4">
-                        <h2 className="text-xl font-bold text-slate-100 mb-4 flex items-center gap-2">
-                            <span>🏢</span> All Companies
-                        </h2>
+                    <div>
+                        <div className="flex items-center justify-between mb-3">
+                            <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                                <span>🏢</span> All Companies
+                            </h2>
+                            <input
+                                type="text"
+                                placeholder="Search companies..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="px-3 py-1.5 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm w-48"
+                            />
+                        </div>
                         {loading ? (
-                            <div className="animate-pulse space-y-4">
-                                {[1, 2, 3].map(i => <div key={i} className="h-24 bg-slate-800 rounded-2xl shadow-sm" />)}
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                                {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-16 bg-slate-800 rounded-lg shadow-sm" />)}
                             </div>
                         ) : companies.length === 0 ? (
-                            <div className="text-center py-12 bg-slate-800 rounded-2xl border-2 border-dashed border-slate-600 text-slate-500">
+                            <div className="text-center py-8 bg-slate-800 rounded-lg border-2 border-dashed border-slate-600 text-slate-500 text-sm">
                                 No companies found. Create your first company!
                             </div>
-                        ) : (
-                            companies.map(c => (
-                                <div key={c.id} className="group bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-700 hover:shadow-md transition-all">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <p className="font-bold text-lg text-slate-100">{c.name || 'Unnamed Company'}</p>
+                        ) : (() => {
+                            const filteredCompanies = companies.filter(c => {
+                                if (!search.trim()) return true
+                                const searchLower = search.toLowerCase()
+                                const name = c.name?.toLowerCase() || ''
+                                const companyId = c.companyId.toLowerCase()
+                                return name.includes(searchLower) || companyId.includes(searchLower)
+                            })
+                            
+                            if (filteredCompanies.length === 0) {
+                                return (
+                                    <div className="text-center py-8 bg-slate-800 rounded-lg border-2 border-dashed border-slate-600 text-slate-500 text-sm">
+                                        No companies match "{search}"
+                                    </div>
+                                )
+                            }
+                            
+                            return (
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                                {filteredCompanies.map(c => (
+                                <div key={c.id} className="group bg-slate-800 p-3 rounded-lg shadow-sm border border-slate-700 hover:shadow-md transition-all">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <p className="font-semibold text-sm text-slate-100 truncate">{c.name || 'Unnamed Company'}</p>
                                             </div>
-                                            <p className="text-slate-500 text-xs font-mono mb-2">{c.companyId}</p>
-                                            {c._count && c._count.mappings > 0 && (
-                                                <p className="text-xs text-indigo-400">
-                                                    Used in {c._count.mappings} mapping{c._count.mappings !== 1 ? 's' : ''}
-                                                </p>
-                                            )}
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <p className="text-slate-500 text-xs font-mono">{c.companyId}</p>
+                                                {c._count && c._count.mappings > 0 && (
+                                                    <span className="text-xs text-indigo-400">
+                                                        {c._count.mappings} mapping{c._count.mappings !== 1 ? 's' : ''}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity ml-4">
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-3 flex-shrink-0">
                                             <button
                                                 type="button"
                                                 onClick={() => handleEdit(c)}
-                                                className="text-blue-400 hover:text-blue-600 hover:bg-blue-900/20 p-2 rounded-lg transition-colors"
+                                                className="text-blue-400 hover:text-blue-600 hover:bg-blue-900/20 p-1.5 rounded transition-colors"
                                                 title="Edit Company"
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={(e) => handleDeleteClick(e, c.id)}
-                                                className="text-red-400 hover:text-red-600 hover:bg-red-900/20 p-2 rounded-lg transition-colors"
+                                                className="text-red-400 hover:text-red-600 hover:bg-red-900/20 p-1.5 rounded transition-colors"
                                                 title="Delete Company"
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
                                             </button>
                                         </div>
                                     </div>
                                 </div>
-                            ))
-                        )}
+                            ))}
+                                </div>
+                            )
+                        })()}
                     </div>
                 </div>
             </div>
