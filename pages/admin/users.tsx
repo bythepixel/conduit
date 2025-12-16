@@ -156,11 +156,7 @@ export default function Users() {
             </Head>
 
             <div className="max-w-5xl mx-auto space-y-8">
-                <Header
-                    action={
-                        <div className="text-xl font-bold text-slate-100">User Management</div>
-                    }
-                />
+                <Header />
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {/* Form */}

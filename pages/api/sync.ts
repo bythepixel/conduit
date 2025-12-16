@@ -51,27 +51,45 @@ export default async function handler(
 
                     let history
                     try {
+                        console.log(`[Slack API] Fetching conversation history for channel ${mappingChannel.slackChannel.channelId}`)
                         history = await slack.conversations.history({
                             channel: mappingChannel.slackChannel.channelId,
                             oldest: (yesterday.getTime() / 1000).toString(),
                         })
+                        console.log(`[Slack API] Successfully fetched ${history.messages?.length || 0} messages`)
                     } catch (err: any) {
+                        const errorCode = err.data?.error || err.code
+                        const errorMsg = err.data?.error || err.message || 'Unknown error'
+                        
+                        if (errorCode === 'rate_limited' || err.status === 429 || errorMsg.includes('rate limit')) {
+                            console.error(`[Slack API] Rate limit error: ${errorMsg}`, err)
+                            throw new Error(`Slack API Rate Limit Error: ${errorMsg}. Will retry automatically.`)
+                        }
+                        
                         if (err.data?.error === 'not_in_channel') {
                             try {
-                                // Helper log
-                                console.log(`Bot not in channel ${mappingChannel.slackChannel.channelId}, attempting to join...`)
+                                console.log(`[Slack API] Bot not in channel ${mappingChannel.slackChannel.channelId}, attempting to join...`)
                                 await slack.conversations.join({ channel: mappingChannel.slackChannel.channelId })
 
                                 // Retry fetch
+                                console.log(`[Slack API] Retrying conversation history fetch after join`)
                                 history = await slack.conversations.history({
                                     channel: mappingChannel.slackChannel.channelId,
                                     oldest: (yesterday.getTime() / 1000).toString(),
                                 })
                             } catch (joinErr: any) {
-                                throw new Error(`Slack API Error (Auto-Join Failed): ${joinErr.message}`)
+                                const joinErrorCode = joinErr.data?.error || joinErr.code
+                                const joinErrorMsg = joinErr.data?.error || joinErr.message || 'Unknown error'
+                                if (joinErrorCode === 'rate_limited' || joinErr.status === 429 || joinErrorMsg.includes('rate limit')) {
+                                    console.error(`[Slack API] Rate limit error during join: ${joinErrorMsg}`, joinErr)
+                                    throw new Error(`Slack API Rate Limit Error (Auto-Join): ${joinErrorMsg}. Will retry automatically.`)
+                                }
+                                console.error(`[Slack API] Auto-Join Failed:`, joinErr)
+                                throw new Error(`Slack API Error (Auto-Join Failed): ${joinErrorMsg}`)
                             }
                         } else {
-                            throw new Error(`Slack API Error: ${err.message}`)
+                            console.error(`[Slack API] Error fetching conversation history:`, err)
+                            throw new Error(`Slack API Error: ${errorMsg}`)
                         }
                     }
 
@@ -86,26 +104,43 @@ export default async function handler(
 
                 // 2. Generate "Summary" (Digest of messages)
 
-                // Fetch all users to map IDs to Names
-                let userMap = new Map<string, string>()
-                try {
-                    const usersList = await slack.users.list()
-                    if (usersList.members) {
-                        usersList.members.forEach(member => {
-                            if (member.id && member.name) {
-                                userMap.set(member.id, member.real_name || member.name)
-                            }
-                        })
+                // Fetch users from database to map Slack IDs to names
+                console.log(`[Database] Fetching users with Slack IDs`)
+                const dbUsers = await prisma.user.findMany({
+                    where: {
+                        slackId: { not: null }
+                    },
+                    select: {
+                        slackId: true,
+                        firstName: true,
+                        lastName: true
                     }
-                } catch (e) {
-                    console.error('Failed to fetch Slack users', e)
-                }
+                })
+
+                // Create a map of Slack IDs to full names from database
+                const userMap = new Map<string, string>()
+                dbUsers.forEach(user => {
+                    if (user.slackId) {
+                        const fullName = `${user.firstName} ${user.lastName}`.trim()
+                        userMap.set(user.slackId, fullName)
+                    }
+                })
+                console.log(`[Database] Loaded ${userMap.size} users from database`)
 
                 // 2. Generate "Summary" (ChatGPT)
+                // Replace Slack user IDs in message text with names from database
                 const messagesText = history.messages.slice().reverse().map((m: any) => {
                     const userId = m.user || 'Unknown'
-                    const userName = userMap.get(userId) || userId
-                    const text = m.text || ''
+                    let userName = userMap.get(userId) || userId
+                    
+                    // Replace user IDs in message text with names
+                    let text = m.text || ''
+                    // Replace <@USER_ID> mentions with names
+                    text = text.replace(/<@([A-Z0-9]+)>/g, (match: string, mentionedUserId: string) => {
+                        const mentionedName = userMap.get(mentionedUserId) || mentionedUserId
+                        return `@${mentionedName}`
+                    })
+                    
                     return `${userName}: ${text}`
                 }).join('\n')
 
@@ -119,6 +154,7 @@ export default async function handler(
 
                 let summaryContent
                 try {
+                    console.log(`[OpenAI API] Creating chat completion for ${mappingChannel.slackChannel.channelId}`)
                     const completion = await openai.createChatCompletion({
                         messages: [
                             { role: 'system', content: systemPrompt },
@@ -126,14 +162,21 @@ export default async function handler(
                         ],
                         model: 'gpt-3.5-turbo',
                     })
+                    console.log(`[OpenAI API] Successfully generated summary`)
                     summaryContent = `Daily Slack Summary for ${mappingChannel.slackChannel.name || mappingChannel.slackChannel.channelId}:\n\n${completion.data.choices[0].message?.content}`
                 } catch (openaiErr: any) {
-                    // console.error('OpenAI Error', openaiErr) 
-                    // v3 errors often in openaiErr.response.data
-                    const msg = openaiErr.response?.data?.error?.message || openaiErr.message
+                    const errorCode = openaiErr.response?.status
+                    const errorMsg = openaiErr.response?.data?.error?.message || openaiErr.message || 'Unknown error'
+                    
+                    if (errorCode === 429 || errorMsg.toLowerCase().includes('rate limit')) {
+                        console.error(`[OpenAI API] Rate limit error: ${errorMsg}`, openaiErr.response?.data)
+                        throw new Error(`OpenAI API Rate Limit Error: ${errorMsg}. Will retry automatically.`)
+                    }
+                    
+                    console.error(`[OpenAI API] Error creating chat completion:`, openaiErr.response?.data || openaiErr)
                     // Fallback to simple list
                     const fallbackLines = history.messages.map((m: any) => `- <${m.user || '?'}>: ${m.text || ''}`)
-                    summaryContent = `Daily Slack Summary (Fallback): \n\n${fallbackLines.join('\n')}\n\n(ChatGPT Summary Failed: ${msg})`
+                    summaryContent = `Daily Slack Summary (Fallback): \n\n${fallbackLines.join('\n')}\n\n(OpenAI API Error: ${errorMsg})`
                 }
 
                 // 3. Create Note in HubSpot (skip if test mode)
@@ -162,6 +205,7 @@ export default async function handler(
                     // Note to Company: 'note_to_company'
 
                     try {
+                        console.log(`[HubSpot API] Creating note for company ${mapping.hubspotCompany.companyId}`)
                         await hubspot.crm.objects.notes.basicApi.create({
                             properties: {
                                 hs_timestamp: Date.now().toString(),
@@ -174,8 +218,18 @@ export default async function handler(
                             }
                         ]
                         })
+                        console.log(`[HubSpot API] Successfully created note`)
                     } catch (err: any) {
-                        throw new Error(`HubSpot API Error: ${err.message}`)
+                        const errorCode = err.code || err.statusCode || err.status
+                        const errorMsg = err.message || err.body?.message || 'Unknown error'
+                        
+                        if (errorCode === 429 || errorMsg.toLowerCase().includes('rate limit') || errorMsg.toLowerCase().includes('too many requests')) {
+                            console.error(`[HubSpot API] Rate limit error: ${errorMsg}`, err)
+                            throw new Error(`HubSpot API Rate Limit Error: ${errorMsg}. Will retry automatically.`)
+                        }
+                        
+                        console.error(`[HubSpot API] Error creating note:`, err)
+                        throw new Error(`HubSpot API Error: ${errorMsg}`)
                     }
 
                     // Update last synced
@@ -197,12 +251,14 @@ export default async function handler(
                     })
 
                 } catch (error: any) {
-                    console.error(`Error ${isTestMode ? 'testing' : 'syncing'} mapping ${mapping.id} channel ${mappingChannel.slackChannel.channelId}:`, error)
+                    const errorMsg = error.message || 'Unknown error'
+                    console.error(`[SYNC ERROR] ${isTestMode ? 'Testing' : 'Syncing'} mapping ${mapping.id} channel ${mappingChannel.slackChannel.channelId}:`, errorMsg)
+                    console.error(`[SYNC ERROR] Full error details:`, error)
                     results.push({ 
                         id: mapping.id, 
                         channelId: mappingChannel.slackChannel.channelId,
                         status: 'Failed', 
-                        error: error.message 
+                        error: errorMsg
                     })
                 }
             }

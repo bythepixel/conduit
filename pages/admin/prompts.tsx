@@ -140,11 +140,7 @@ export default function Prompts() {
             </Head>
 
             <div className="max-w-6xl mx-auto space-y-8">
-                <Header
-                    action={
-                        <div className="text-xl font-bold text-slate-100">Prompt Management</div>
-                    }
-                />
+                <Header />
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Form */}
