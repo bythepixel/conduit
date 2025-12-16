@@ -1,13 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../lib/prisma'
-import { WebClient } from '@slack/web-api'
-import { Client as HubSpotClient } from '@hubspot/api-client'
-import { Configuration, OpenAIApi } from 'openai'
-
-const slack = new WebClient(process.env.SLACK_BOT_TOKEN)
-const hubspot = new HubSpotClient({ accessToken: process.env.HUBSPOT_ACCESS_TOKEN })
-const configuration = new Configuration({ apiKey: process.env.OPENAI_API_KEY || 'temp-dummy-key' })
-const openai = new OpenAIApi(configuration)
+import { fetchRecentMessages } from '../../lib/services/slackService'
+import { createCompanyNote } from '../../lib/services/hubspotService'
+import { generateSummary, generateFallbackSummary } from '../../lib/services/openaiService'
+import { getUserMap, formatMessagesForSummary } from '../../lib/services/userMappingService'
+import { getCadencesForToday } from '../../lib/services/cadenceService'
 
 export default async function handler(
     req: NextApiRequest,
@@ -25,8 +22,34 @@ export default async function handler(
     }
 
     try {
-        const { mappingId, test } = req.body
-        const whereClause = mappingId ? { id: Number(mappingId) } : {}
+        // Determine if this is a cron call (GET) or manual call (POST)
+        const isCronCall = req.method === 'GET'
+        const { mappingId, test } = req.body || {}
+        
+        // Build where clause
+        let whereClause: any = mappingId ? { id: Number(mappingId) } : {}
+        
+        // If this is a cron call, filter by cadence based on current date
+        if (isCronCall) {
+            const cadenceResult = getCadencesForToday()
+            
+            if (!cadenceResult.shouldSync) {
+                console.log(`[CRON] No mappings should sync today (Day: ${cadenceResult.dayOfWeek}, Date: ${cadenceResult.dayOfMonth}/${cadenceResult.lastDayOfMonth})`)
+                return res.status(200).json({ 
+                    message: 'No mappings scheduled for sync today', 
+                    results: [],
+                    cadence: {
+                        dayOfWeek: cadenceResult.dayOfWeek,
+                        dayOfMonth: cadenceResult.dayOfMonth,
+                        lastDayOfMonth: cadenceResult.lastDayOfMonth
+                    }
+                })
+            }
+            
+            whereClause.cadence = { in: cadenceResult.cadences }
+            console.log(`[CRON] Filtering mappings by cadence: ${cadenceResult.cadences.join(', ')} (Day: ${cadenceResult.dayOfWeek}, Date: ${cadenceResult.dayOfMonth}/${cadenceResult.lastDayOfMonth})`)
+        }
+        
         const mappings = await prisma.mapping.findMany({ 
             where: whereClause,
             include: {
@@ -38,60 +61,32 @@ export default async function handler(
                 hubspotCompany: true
             }
         })
+        
+        if (isCronCall) {
+            console.log(`[CRON] Found ${mappings.length} mapping(s) to sync`)
+        }
+        
         const results = []
         const isTestMode = test === true
+
+        // Fetch active prompt once for all mappings
+        const activePrompt = await prisma.prompt.findFirst({
+            where: { isActive: true }
+        })
+        const systemPrompt = activePrompt?.content || undefined
+
+        // Fetch user map once for all mappings
+        const userMap = await getUserMap()
 
         for (const mapping of mappings) {
             // Process each channel in the mapping
             for (const mappingChannel of mapping.slackChannels) {
                 try {
                     // 1. Fetch Slack Messages (Last 24 hours)
-                    const yesterday = new Date()
-                    yesterday.setDate(yesterday.getDate() - 1)
-
-                    let history
-                    try {
-                        console.log(`[Slack API] Fetching conversation history for channel ${mappingChannel.slackChannel.channelId}`)
-                        history = await slack.conversations.history({
-                            channel: mappingChannel.slackChannel.channelId,
-                            oldest: (yesterday.getTime() / 1000).toString(),
-                        })
-                        console.log(`[Slack API] Successfully fetched ${history.messages?.length || 0} messages`)
-                    } catch (err: any) {
-                        const errorCode = err.data?.error || err.code
-                        const errorMsg = err.data?.error || err.message || 'Unknown error'
-                        
-                        if (errorCode === 'rate_limited' || err.status === 429 || errorMsg.includes('rate limit')) {
-                            console.error(`[Slack API] Rate limit error: ${errorMsg}`, err)
-                            throw new Error(`Slack API Rate Limit Error: ${errorMsg}. Will retry automatically.`)
-                        }
-                        
-                        if (err.data?.error === 'not_in_channel') {
-                            try {
-                                console.log(`[Slack API] Bot not in channel ${mappingChannel.slackChannel.channelId}, attempting to join...`)
-                                await slack.conversations.join({ channel: mappingChannel.slackChannel.channelId })
-
-                                // Retry fetch
-                                console.log(`[Slack API] Retrying conversation history fetch after join`)
-                                history = await slack.conversations.history({
-                                    channel: mappingChannel.slackChannel.channelId,
-                                    oldest: (yesterday.getTime() / 1000).toString(),
-                                })
-                            } catch (joinErr: any) {
-                                const joinErrorCode = joinErr.data?.error || joinErr.code
-                                const joinErrorMsg = joinErr.data?.error || joinErr.message || 'Unknown error'
-                                if (joinErrorCode === 'rate_limited' || joinErr.status === 429 || joinErrorMsg.includes('rate limit')) {
-                                    console.error(`[Slack API] Rate limit error during join: ${joinErrorMsg}`, joinErr)
-                                    throw new Error(`Slack API Rate Limit Error (Auto-Join): ${joinErrorMsg}. Will retry automatically.`)
-                                }
-                                console.error(`[Slack API] Auto-Join Failed:`, joinErr)
-                                throw new Error(`Slack API Error (Auto-Join Failed): ${joinErrorMsg}`)
-                            }
-                        } else {
-                            console.error(`[Slack API] Error fetching conversation history:`, err)
-                            throw new Error(`Slack API Error: ${errorMsg}`)
-                        }
-                    }
+                    const history = await fetchRecentMessages(
+                        mappingChannel.slackChannel.channelId,
+                        1
+                    )
 
                     if (!history.messages || history.messages.length === 0) {
                         results.push({ 
@@ -102,142 +97,38 @@ export default async function handler(
                         continue
                     }
 
-                // 2. Generate "Summary" (Digest of messages)
+                    // 2. Format messages with user names
+                    const messagesText = formatMessagesForSummary(history.messages, userMap)
 
-                // Fetch users from database to map Slack IDs to names
-                console.log(`[Database] Fetching users with Slack IDs`)
-                const dbUsers = await prisma.user.findMany({
-                    where: {
-                        slackId: { not: null }
-                    },
-                    select: {
-                        slackId: true,
-                        firstName: true,
-                        lastName: true
-                    }
-                })
-
-                // Create a map of Slack IDs to full names from database
-                const userMap = new Map<string, string>()
-                dbUsers.forEach(user => {
-                    if (user.slackId) {
-                        const fullName = `${user.firstName} ${user.lastName}`.trim()
-                        userMap.set(user.slackId, fullName)
-                    }
-                })
-                console.log(`[Database] Loaded ${userMap.size} users from database`)
-
-                // 2. Generate "Summary" (ChatGPT)
-                // Replace Slack user IDs in message text with names from database
-                const messagesText = history.messages.slice().reverse().map((m: any) => {
-                    const userId = m.user || 'Unknown'
-                    let userName = userMap.get(userId) || userId
-                    
-                    // Replace user IDs in message text with names
-                    let text = m.text || ''
-                    // Replace <@USER_ID> mentions with names
-                    text = text.replace(/<@([A-Z0-9]+)>/g, (match: string, mentionedUserId: string) => {
-                        const mentionedName = userMap.get(mentionedUserId) || mentionedUserId
-                        return `@${mentionedName}`
-                    })
-                    
-                    return `${userName}: ${text}`
-                }).join('\n')
-
-                // Fetch the active prompt from database
-                const activePrompt = await prisma.prompt.findFirst({
-                    where: { isActive: true }
-                })
-
-                // Use active prompt if available, otherwise fallback to default
-                const systemPrompt = activePrompt?.content || 'Summarize the following Slack conversation in a short, informative paragraph. The input format is "Name: Message". Use the names in your summary to attribute key points.'
-
-                let summaryContent
-                try {
-                    console.log(`[OpenAI API] Creating chat completion for ${mappingChannel.slackChannel.channelId}`)
-                    const completion = await openai.createChatCompletion({
-                        messages: [
-                            { role: 'system', content: systemPrompt },
-                            { role: 'user', content: messagesText }
-                        ],
-                        model: 'gpt-3.5-turbo',
-                    })
-                    console.log(`[OpenAI API] Successfully generated summary`)
-                    summaryContent = `Daily Slack Summary for ${mappingChannel.slackChannel.name || mappingChannel.slackChannel.channelId}:\n\n${completion.data.choices[0].message?.content}`
-                } catch (openaiErr: any) {
-                    const errorCode = openaiErr.response?.status
-                    const errorMsg = openaiErr.response?.data?.error?.message || openaiErr.message || 'Unknown error'
-                    
-                    if (errorCode === 429 || errorMsg.toLowerCase().includes('rate limit')) {
-                        console.error(`[OpenAI API] Rate limit error: ${errorMsg}`, openaiErr.response?.data)
-                        throw new Error(`OpenAI API Rate Limit Error: ${errorMsg}. Will retry automatically.`)
-                    }
-                    
-                    console.error(`[OpenAI API] Error creating chat completion:`, openaiErr.response?.data || openaiErr)
-                    // Fallback to simple list
-                    const fallbackLines = history.messages.map((m: any) => `- <${m.user || '?'}>: ${m.text || ''}`)
-                    summaryContent = `Daily Slack Summary (Fallback): \n\n${fallbackLines.join('\n')}\n\n(OpenAI API Error: ${errorMsg})`
-                }
-
-                // 3. Create Note in HubSpot (skip if test mode)
-                if (!isTestMode) {
-                    // HubSpot Notes are "Engagements" or CRM Objects.
-                    // Using CRM Objects API for Notes
-
-                    const noteInput = {
-                        properties: {
-                            hs_timestamp: Date.now().toString(),
-                            hs_note_body: summaryContent
-                        },
-                        associations: [
-                            {
-                                to: { id: mapping.hubspotCompanyId },
-                                types: [
-                                    { associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 190 } // 190 is Company to Note? Or Note to Company?
-                                    // Standard association for Note -> Company is likely needed.
-                                    // Actually, creating a note via CRM API v3:
-                                ]
-                            }
-                        ]
-                    }
-
-                    // Wait, associating via create is simpler if we know the def.
-                    // Note to Company: 'note_to_company'
-
+                    // 3. Generate Summary using ChatGPT
+                    let summaryContent: string
                     try {
-                        console.log(`[HubSpot API] Creating note for company ${mapping.hubspotCompany.companyId}`)
-                        await hubspot.crm.objects.notes.basicApi.create({
-                            properties: {
-                                hs_timestamp: Date.now().toString(),
-                                hs_note_body: summaryContent
-                            },
-                        associations: [
-                            {
-                                to: { id: mapping.hubspotCompany.companyId },
-                                types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 190 }] // 190 is Note to Company
-                            }
-                        ]
-                        })
-                        console.log(`[HubSpot API] Successfully created note`)
-                    } catch (err: any) {
-                        const errorCode = err.code || err.statusCode || err.status
-                        const errorMsg = err.message || err.body?.message || 'Unknown error'
-                        
-                        if (errorCode === 429 || errorMsg.toLowerCase().includes('rate limit') || errorMsg.toLowerCase().includes('too many requests')) {
-                            console.error(`[HubSpot API] Rate limit error: ${errorMsg}`, err)
-                            throw new Error(`HubSpot API Rate Limit Error: ${errorMsg}. Will retry automatically.`)
-                        }
-                        
-                        console.error(`[HubSpot API] Error creating note:`, err)
-                        throw new Error(`HubSpot API Error: ${errorMsg}`)
+                        summaryContent = await generateSummary(
+                            messagesText,
+                            systemPrompt,
+                            mappingChannel.slackChannel.name || mappingChannel.slackChannel.channelId
+                        )
+                    } catch (openaiErr: any) {
+                        // Fallback to simple list if OpenAI fails
+                        summaryContent = generateFallbackSummary(
+                            history.messages,
+                            openaiErr.message || 'Unknown error'
+                        )
                     }
 
-                    // Update last synced
-                    await prisma.mapping.update({
-                        where: { id: mapping.id },
-                        data: { lastSyncedAt: new Date() }
-                    })
-                }
+                    // 4. Create Note in HubSpot (skip if test mode)
+                    if (!isTestMode) {
+                        await createCompanyNote(
+                            mapping.hubspotCompany.companyId,
+                            summaryContent
+                        )
+
+                        // Update last synced timestamp
+                        await prisma.mapping.update({
+                            where: { id: mapping.id },
+                            data: { lastSyncedAt: new Date() }
+                        })
+                    }
 
                     results.push({
                         id: mapping.id,
