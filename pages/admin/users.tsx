@@ -100,7 +100,7 @@ export default function Users() {
     if (status === "loading" || !session) return <div>Loading...</div>
 
     return (
-        <div className="min-h-screen bg-slate-50 p-8 font-sans">
+        <div className="min-h-screen bg-slate-900 p-8 font-sans">
             <Head>
                 <title>User Management - Slacky Hub</title>
             </Head>
@@ -108,38 +108,38 @@ export default function Users() {
             <div className="max-w-4xl mx-auto space-y-8">
                 <Header
                     action={
-                        <div className="text-xl font-bold text-slate-800">User Management</div>
+                        <div className="text-xl font-bold text-slate-100">User Management</div>
                     }
                 />
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {/* Form */}
                     <div className="md:col-span-1">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                            <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                        <div className="bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-700">
+                            <h2 className="text-xl font-bold text-slate-100 mb-6 flex items-center gap-2">
                                 <span>{editingId ? '✏️' : '➕'}</span> {editingId ? 'Edit User' : 'Add User'}
                             </h2>
                             <form onSubmit={handleSubmit} className="space-y-4">
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">First Name</label>
-                                    <input type="text" required className="w-full px-4 py-2 rounded-lg bg-slate-50 border border-slate-200" value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value })} />
+                                    <input type="text" required className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600" value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value })} />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Last Name</label>
-                                    <input type="text" required className="w-full px-4 py-2 rounded-lg bg-slate-50 border border-slate-200" value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })} />
+                                    <input type="text" required className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600" value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })} />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Email</label>
-                                    <input type="email" required className="w-full px-4 py-2 rounded-lg bg-slate-50 border border-slate-200" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+                                    <input type="email" required className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                                        Password {editingId && <span className="text-xs normal-case text-slate-400">(leave blank to keep current)</span>}
+                                        Password {editingId && <span className="text-xs normal-case text-slate-500">(leave blank to keep current)</span>}
                                     </label>
                                     <input
                                         type="password"
                                         required={!editingId}
-                                        className="w-full px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                        className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                         value={form.password}
                                         onChange={e => setForm({ ...form, password: e.target.value })}
                                     />
@@ -152,7 +152,7 @@ export default function Users() {
                                         <button
                                             type="button"
                                             onClick={handleCancelEdit}
-                                            className="px-4 py-3 bg-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-300 transition-all active:scale-95"
+                                            className="px-4 py-3 bg-slate-600 text-slate-500 rounded-xl font-semibold hover:bg-slate-500 transition-all active:scale-95"
                                         >
                                             Cancel
                                         </button>
@@ -164,29 +164,29 @@ export default function Users() {
 
                     {/* List */}
                     <div className="md:col-span-2 space-y-4">
-                        <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <h2 className="text-xl font-bold text-slate-100 mb-4 flex items-center gap-2">
                             <span>👥</span> All Users
                         </h2>
                         {loading ? (
                             <div className="animate-pulse space-y-4">
-                                {[1, 2, 3].map(i => <div key={i} className="h-20 bg-white rounded-2xl shadow-sm" />)}
+                                {[1, 2, 3].map(i => <div key={i} className="h-20 bg-slate-800 rounded-2xl shadow-sm" />)}
                             </div>
                         ) : users.length === 0 ? (
-                            <div className="text-center py-12 bg-white rounded-2xl border-2 border-dashed border-slate-200 text-slate-400">
+                            <div className="text-center py-12 bg-slate-800 rounded-2xl border-2 border-dashed border-slate-600 text-slate-500">
                                 No users found.
                             </div>
                         ) : (
                             users.map(u => (
-                                <div key={u.id} className="group bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center hover:shadow-md transition-all">
+                                <div key={u.id} className="group bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-700 flex justify-between items-center hover:shadow-md transition-all">
                                     <div>
-                                        <p className="font-bold text-lg text-slate-800">{u.firstName} {u.lastName}</p>
+                                        <p className="font-bold text-lg text-slate-100">{u.firstName} {u.lastName}</p>
                                         <p className="text-slate-500 text-sm font-mono">{u.email}</p>
                                     </div>
                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button
                                             type="button"
                                             onClick={() => handleEdit(u)}
-                                            className="text-blue-400 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                                            className="text-blue-400 hover:text-blue-600 hover:bg-blue-900/20 p-2 rounded-lg transition-colors"
                                             title="Edit User"
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
@@ -194,7 +194,7 @@ export default function Users() {
                                         <button
                                             type="button"
                                             onClick={(e) => handleDeleteClick(e, u.id)}
-                                            className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                                            className="text-red-400 hover:text-red-600 hover:bg-red-900/20 p-2 rounded-lg transition-colors"
                                             title="Delete User"
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
@@ -210,7 +210,7 @@ export default function Users() {
             {/* Delete Confirmation Modal */}
             {deleteConfirm.show && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={cancelDelete}>
-                    <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-slate-800 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-4 mb-4">
                             <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600">
@@ -220,7 +220,7 @@ export default function Users() {
                                 </svg>
                             </div>
                             <div>
-                                <h3 className="text-xl font-bold text-slate-800">Delete User</h3>
+                                <h3 className="text-xl font-bold text-slate-100">Delete User</h3>
                                 <p className="text-slate-500 text-sm">This action cannot be undone</p>
                             </div>
                         </div>
@@ -231,7 +231,7 @@ export default function Users() {
                             <button
                                 type="button"
                                 onClick={cancelDelete}
-                                className="flex-1 px-4 py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-all active:scale-95"
+                                className="flex-1 px-4 py-3 bg-slate-700 text-slate-500 rounded-xl font-semibold hover:bg-slate-600 transition-all active:scale-95"
                             >
                                 Cancel
                             </button>

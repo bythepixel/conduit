@@ -47,7 +47,7 @@ export default function Home() {
     }, [status])
 
     if (status === "loading") {
-        return <div className="min-h-screen bg-slate-50 flex items-center justify-center">Loading...</div>
+        return <div className="min-h-screen bg-slate-900 flex items-center justify-center">Loading...</div>
     }
 
     if (!session) {
@@ -137,7 +137,7 @@ export default function Home() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 p-8 font-sans">
+        <div className="min-h-screen bg-slate-900 p-8 font-sans">
             <Head>
                 <title>Slacky Hub Admin</title>
             </Head>
@@ -160,7 +160,7 @@ export default function Home() {
                 {syncResult && (
                     <div className="space-y-4">
                         {syncResult.map((res, i) => (
-                            <div key={i} className={`p-4 rounded-xl border flex flex-col gap-2 ${res.error ? 'bg-red-50 text-red-700 border-red-100' : 'bg-emerald-50 text-emerald-900 border-emerald-100'}`}>
+                            <div key={i} className={`p-4 rounded-xl border flex flex-col gap-2 ${res.error ? 'bg-red-900/20 text-red-300 border-red-800' : 'bg-emerald-900/20 text-emerald-100 border-emerald-800'}`}>
                                 <div className="flex items-center gap-2 font-semibold">
                                     <span>{res.error ? '❌' : '✅'}</span>
                                     <span>{res.status}</span>
@@ -171,7 +171,7 @@ export default function Home() {
                                     )}
                                 </div>
                                 {res.summary && (
-                                    <div className="mt-2 p-3 bg-white/50 rounded-lg text-sm font-mono whitespace-pre-wrap border border-black/5 max-h-60 overflow-y-auto">
+                                    <div className="mt-2 p-3 bg-slate-800/50 rounded-lg text-sm font-mono whitespace-pre-wrap border border-black/5 max-h-60 overflow-y-auto">
                                         {res.summary}
                                     </div>
                                 )}
@@ -184,8 +184,8 @@ export default function Home() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {/* Form */}
                     <div className="md:col-span-1">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 sticky top-8">
-                            <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                        <div className="bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-700 sticky top-8">
+                            <h2 className="text-xl font-bold text-slate-100 mb-6 flex items-center gap-2">
                                 <span>{editingId ? '✏️' : '➕'}</span> {editingId ? 'Edit Mapping' : 'New Mapping'}
                             </h2>
                             <form onSubmit={handleSubmit} className="space-y-4">
@@ -195,7 +195,7 @@ export default function Home() {
                                         required
                                         type="text"
                                         placeholder="C12345678"
-                                        className="w-full px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono text-sm"
+                                        className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono text-sm"
                                         value={form.slackChannelId}
                                         onChange={e => setForm({ ...form, slackChannelId: e.target.value })}
                                     />
@@ -206,17 +206,17 @@ export default function Home() {
                                         required
                                         type="text"
                                         placeholder="123456789"
-                                        className="w-full px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono text-sm"
+                                        className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono text-sm"
                                         value={form.hubspotCompanyId}
                                         onChange={e => setForm({ ...form, hubspotCompanyId: e.target.value })}
                                     />
                                 </div>
-                                <div className="pt-2 border-t border-slate-100">
+                                <div className="pt-2 border-t border-slate-700">
                                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Channel Name (Optional)</label>
                                     <input
                                         type="text"
                                         placeholder="#general"
-                                        className="w-full px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+                                        className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
                                         value={form.slackChannelName}
                                         onChange={e => setForm({ ...form, slackChannelName: e.target.value })}
                                     />
@@ -226,7 +226,7 @@ export default function Home() {
                                     <input
                                         type="text"
                                         placeholder="Acme Corp"
-                                        className="w-full px-4 py-2 rounded-lg bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+                                        className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
                                         value={form.hubspotCompanyName}
                                         onChange={e => setForm({ ...form, hubspotCompanyName: e.target.value })}
                                     />
@@ -239,7 +239,7 @@ export default function Home() {
                                         <button
                                             type="button"
                                             onClick={handleCancelEdit}
-                                            className="px-4 py-3 bg-slate-200 text-slate-700 rounded-xl font-semibold hover:bg-slate-300 transition-all active:scale-95"
+                                            className="px-4 py-3 bg-slate-600 text-slate-500 rounded-xl font-semibold hover:bg-slate-500 transition-all active:scale-95"
                                         >
                                             Cancel
                                         </button>
@@ -251,29 +251,29 @@ export default function Home() {
 
                     {/* List */}
                     <div className="md:col-span-2 space-y-4">
-                        <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <h2 className="text-xl font-bold text-slate-100 mb-4 flex items-center gap-2">
                             <span>🔗</span> Active Mappings
                         </h2>
                         {loading ? (
                             <div className="animate-pulse space-y-4">
-                                {[1, 2, 3].map(i => <div key={i} className="h-24 bg-white rounded-2xl shadow-sm" />)}
+                                {[1, 2, 3].map(i => <div key={i} className="h-24 bg-slate-800 rounded-2xl shadow-sm" />)}
                             </div>
                         ) : mappings.length === 0 ? (
-                            <div className="text-center py-12 bg-white rounded-2xl border-2 border-dashed border-slate-200 text-slate-400">
+                            <div className="text-center py-12 bg-slate-800 rounded-2xl border-2 border-dashed border-slate-600 text-slate-500">
                                 No mappings found. Add one to get started.
                             </div>
                         ) : (
                             mappings.map(m => (
-                                <div key={m.id} className="group bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center hover:shadow-md transition-all">
+                                <div key={m.id} className="group bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-700 flex justify-between items-center hover:shadow-md transition-all">
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-3">
-                                            <span className="font-bold text-lg text-slate-800">{m.slackChannelName || m.slackChannelId}</span>
-                                            <span className="text-slate-300">→</span>
-                                            <span className="font-bold text-lg text-slate-800">{m.hubspotCompanyName || m.hubspotCompanyId}</span>
+                                            <span className="font-bold text-lg text-slate-100">{m.slackChannelName || m.slackChannelId}</span>
+                                            <span className="text-slate-500">→</span>
+                                            <span className="font-bold text-lg text-slate-100">{m.hubspotCompanyName || m.hubspotCompanyId}</span>
                                         </div>
                                         <div className="flex items-center gap-4 text-xs text-slate-500 font-mono">
-                                            <span className="bg-slate-100 px-2 py-1 rounded">Slack: {m.slackChannelId}</span>
-                                            <span className="bg-slate-100 px-2 py-1 rounded">HubSpot: {m.hubspotCompanyId}</span>
+                                            <span className="bg-slate-700 px-2 py-1 rounded">Slack: {m.slackChannelId}</span>
+                                            <span className="bg-slate-700 px-2 py-1 rounded">HubSpot: {m.hubspotCompanyId}</span>
                                         </div>
                                         {m.lastSyncedAt && <p className="text-xs text-indigo-500 mt-2">Last synced: {new Date(m.lastSyncedAt).toLocaleString()}</p>}
                                     </div>
@@ -281,7 +281,7 @@ export default function Home() {
                                         <button
                                             onClick={() => handleSingleSync(m.id)}
                                             disabled={syncing || syncingIds.includes(m.id)}
-                                            className={`p-2 rounded-lg transition-colors ${syncing || syncingIds.includes(m.id) ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50'}`}
+                                            className={`p-2 rounded-lg transition-colors ${syncing || syncingIds.includes(m.id) ? 'text-slate-500 cursor-not-allowed' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-900/20'}`}
                                             title="Sync Now"
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={syncingIds.includes(m.id) ? 'animate-spin' : ''}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 21h5v-5" /></svg>
@@ -289,14 +289,14 @@ export default function Home() {
                                         <button
                                             onClick={() => handleEdit(m)}
                                             disabled={syncingIds.includes(m.id)}
-                                            className="text-blue-400 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                                            className="text-blue-400 hover:text-blue-600 hover:bg-blue-900/20 p-2 rounded-lg transition-colors"
                                             title="Edit Mapping"
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                         </button>
                                         <button
                                             onClick={() => handleDelete(m.id)}
-                                            className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                                            className="text-red-400 hover:text-red-600 hover:bg-red-900/20 p-2 rounded-lg transition-colors"
                                             title="Remove Mapping"
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
