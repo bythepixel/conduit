@@ -28,3 +28,23 @@ afterAll(() => {
   console.error = originalError
 })
 
+// Add delay between tests to prevent rate limiting
+// This is especially important for API tests that might trigger external services
+// Set TEST_DELAY_MS=0 to disable delays (useful for faster local development)
+const TEST_DELAY_MS = process.env.TEST_DELAY_MS ? parseInt(process.env.TEST_DELAY_MS, 10) : 50
+
+// Helper function to delay execution
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+// Add delay after each test for API-related test suites
+afterEach(async () => {
+  // Only add delay for API tests (tests in __tests__/api/ or service tests)
+  // Skip delay if TEST_DELAY_MS is 0
+  if (TEST_DELAY_MS > 0) {
+    const testPath = expect.getState().testPath || ''
+    if (testPath.includes('/api/') || testPath.includes('/services/')) {
+      await delay(TEST_DELAY_MS)
+    }
+  }
+})
+

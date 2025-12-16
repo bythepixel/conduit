@@ -1,0 +1,17 @@
+# Test files and coverage reports (not needed in production)
+__tests__/
+coverage/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Development files
+.env.local
+.env.development
+.env.test
+
+# Test output
+jest.config.js
+jest.setup.js
+

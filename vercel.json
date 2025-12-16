@@ -4,5 +4,7 @@
             "path": "/api/sync",
             "schedule": "0 4 * * *"
         }
-    ]
+    ],
+    "buildCommand": "npm run build",
+    "installCommand": "npm install"
 }

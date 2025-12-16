@@ -39,6 +39,17 @@ const customJestConfig = {
       statements: 60,
     },
   },
+  // Fail tests if coverage thresholds are not met
+  coverageReporters: ['text', 'lcov', 'html'],
+  // In CI, fail if tests fail (default behavior, but explicit)
+  bail: false,
+  // Ensure tests fail on errors
+  errorOnDeprecated: true,
+  // Increase test timeout for API tests that might need delays
+  testTimeout: 10000, // 10 seconds (default is 5 seconds)
+  // Run tests with limited concurrency to prevent rate limiting issues
+  // Use fewer workers to serialize API tests and prevent rate limiting
+  maxWorkers: process.env.CI ? 2 : '50%', // 50% of CPU cores locally, 2 workers in CI
 }
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

@@ -68,6 +68,15 @@ export const mockSlackClient = {
   },
 }
 
+// Reset function for mocks
+export function resetMocks() {
+  mockSlackClient.conversations.history.mockReset()
+  mockSlackClient.conversations.join.mockReset()
+  mockSlackClient.users.list.mockReset()
+  mockHubSpotClient.crm.objects.notes.basicApi.create.mockReset()
+  mockOpenAIClient.createChatCompletion.mockReset()
+}
+
 // Mock HubSpot Client
 export const mockHubSpotClient = {
   crm: {

@@ -54,3 +54,11 @@ export function waitFor(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/**
+ * Helper to add a small delay between API test calls to prevent rate limiting
+ * Use this in beforeEach/afterEach hooks for API tests
+ */
+export async function delayBetweenTests(ms: number = 100): Promise<void> {
+  return waitFor(ms)
+}
+
