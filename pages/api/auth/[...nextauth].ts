@@ -30,10 +30,16 @@ export const authOptions: NextAuthOptions = {
                     return null
                 }
 
+                // Only allow users with isAdmin flag set to true
+                if (!user.isAdmin) {
+                    throw new Error("Access denied. Admin privileges required.")
+                }
+
                 return {
                     id: user.id.toString(),
                     name: `${user.firstName} ${user.lastName}`,
-                    email: user.email
+                    email: user.email,
+                    isAdmin: user.isAdmin
                 }
             }
         })
@@ -46,9 +52,17 @@ export const authOptions: NextAuthOptions = {
         strategy: "jwt"
     },
     callbacks: {
+        async jwt({ token, user }) {
+            if (user) {
+                token.id = user.id
+                token.isAdmin = (user as any).isAdmin
+            }
+            return token
+        },
         async session({ session, token }) {
             if (session?.user && token.sub) {
                 session.user.id = token.sub
+                session.user.isAdmin = token.isAdmin as boolean
             }
             return session
         }

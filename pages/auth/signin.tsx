@@ -22,7 +22,12 @@ export default function SignIn() {
         })
 
         if (res?.error) {
-            setError("Invalid email or password")
+            // Check for admin access denied error
+            if (res.error.includes("Access denied") || res.error.includes("Admin privileges")) {
+                setError("Access denied. Admin privileges required to sign in.")
+            } else {
+                setError("Invalid email or password")
+            }
             setLoading(false)
         } else {
             router.push("/")
