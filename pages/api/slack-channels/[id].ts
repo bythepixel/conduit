@@ -41,7 +41,7 @@ export default async function handler(
     }
 
     if (req.method === 'PUT') {
-        const { channelId, name } = req.body
+        const { channelId, name, isClient } = req.body
 
         if (!channelId) {
             return res.status(400).json({ error: "channelId is required" })
@@ -53,6 +53,7 @@ export default async function handler(
                 data: {
                     channelId,
                     name,
+                    isClient: isClient !== undefined ? isClient : undefined,
                 },
             })
             return res.status(200).json(channel)

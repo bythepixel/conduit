@@ -22,8 +22,12 @@ export default async function handler(
         const results = {
             created: 0,
             updated: 0,
+            deleted: 0,
             errors: [] as string[]
         }
+
+        // Track all company IDs from HubSpot to identify which ones to delete
+        const hubspotCompanyIds = new Set<string>()
 
         let after: string | undefined = undefined
         let hasMore = true
@@ -47,6 +51,9 @@ export default async function handler(
                             results.errors.push(`Skipped company: No company ID`)
                             continue
                         }
+
+                        const companyIdStr = companyId.toString()
+                        hubspotCompanyIds.add(companyIdStr)
 
                         // Check if company exists by companyId
                         const existingCompany = await prisma.hubspotCompany.findUnique({
@@ -74,7 +81,7 @@ export default async function handler(
                             try {
                                 await prisma.hubspotCompany.create({
                                     data: {
-                                        companyId: companyId.toString(),
+                                        companyId: companyIdStr,
                                         name: name || null
                                     }
                                 })
@@ -137,6 +144,36 @@ export default async function handler(
                     hasMore = false
                 }
             }
+        }
+
+        // Delete companies that are not present in HubSpot
+        try {
+            const companiesToDelete = await prisma.hubspotCompany.findMany({
+                where: {
+                    companyId: {
+                        notIn: Array.from(hubspotCompanyIds)
+                    }
+                }
+            })
+
+            // Check if any companies to delete are used in mappings
+            for (const company of companiesToDelete) {
+                const mappingCount = await prisma.slackMapping.count({
+                    where: { hubspotCompanyId: company.id }
+                })
+
+                if (mappingCount > 0) {
+                    results.errors.push(`Cannot delete ${company.name || company.companyId}: Used in ${mappingCount} mapping(s)`)
+                } else {
+                    await prisma.hubspotCompany.delete({
+                        where: { id: company.id }
+                    })
+                    results.deleted++
+                }
+            }
+        } catch (deleteError: any) {
+            console.error('Error deleting companies not in HubSpot:', deleteError)
+            results.errors.push(`Error deleting companies: ${deleteError.message || 'Unknown error'}`)
         }
 
         return res.status(200).json({

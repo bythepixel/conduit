@@ -42,34 +42,32 @@ describe('Header component', () => {
   it('should render the header with title', () => {
     render(<Header />)
     
-    expect(screen.getByText('Slacky Hub')).toBeInTheDocument()
+    expect(screen.getByText('Conduit')).toBeInTheDocument()
     // Subtitle removed in new design, so we don't check for it
   })
 
   it('should render navigation links', () => {
     render(<Header />)
     
-    // Navigation links are in hamburger menu on mobile, visible on desktop
-    // Try to find them (they might be in mobile menu or desktop nav)
-    const mappingsLink = screen.queryByText('Mappings') || screen.getByText('Mappings', { selector: 'a' })
-    const promptsLink = screen.queryByText('Prompts') || screen.getByText('Prompts', { selector: 'a' })
-    const channelsLink = screen.queryByText('Channels') || screen.getByText('Channels', { selector: 'a' })
-    const companiesLink = screen.queryByText('Companies') || screen.getByText('Companies', { selector: 'a' })
-    const usersLink = screen.queryByText('Users') || screen.getByText('Users', { selector: 'a' })
-    const cronLogsLink = screen.queryByText('Cron Logs') || screen.getByText('Cron Logs', { selector: 'a' })
+    // On desktop, links are in dropdowns - open SlackyHub dropdown
+    const slackyHubButton = screen.getByText('SlackyHub')
+    fireEvent.click(slackyHubButton)
     
-    // If not found, try opening hamburger menu
-    if (!mappingsLink) {
-      const hamburgerButton = screen.getByLabelText('Toggle navigation menu')
-      fireEvent.click(hamburgerButton)
-    }
-    
-    expect(screen.getByText('Mappings')).toBeInTheDocument()
+    // Now the dropdown items should be visible
+    expect(screen.getByText('Slack Mappings')).toBeInTheDocument()
     expect(screen.getByText('Prompts')).toBeInTheDocument()
     expect(screen.getByText('Channels')).toBeInTheDocument()
     expect(screen.getByText('Companies')).toBeInTheDocument()
-    expect(screen.getByText('Users')).toBeInTheDocument()
     expect(screen.getByText('Cron Logs')).toBeInTheDocument()
+    
+    // Open FireSpot dropdown
+    const fireSpotButton = screen.getByText('FireSpot')
+    fireEvent.click(fireSpotButton)
+    
+    expect(screen.getByText('Meeting Notes')).toBeInTheDocument()
+    
+    // Users should be directly visible (no dropdown)
+    expect(screen.getByText('Users')).toBeInTheDocument()
   })
 
   it('should show user initial in circle', () => {
@@ -107,30 +105,24 @@ describe('Header component', () => {
     mockRouter.pathname = '/admin/prompts'
     render(<Header />)
     
-    // Open hamburger menu if needed
-    let promptsLink = screen.queryByText('Prompts')
-    if (!promptsLink) {
-      const hamburgerButton = screen.getByLabelText('Toggle navigation menu')
-      fireEvent.click(hamburgerButton)
-    }
+    // Open SlackyHub dropdown to see the links
+    const slackyHubButton = screen.getByText('SlackyHub')
+    fireEvent.click(slackyHubButton)
     
-    promptsLink = screen.getByText('Prompts').closest('a')
-    expect(promptsLink).toHaveClass('bg-slate-600')
+    const promptsLink = screen.getByText('Prompts').closest('a')
+    expect(promptsLink).toHaveClass('bg-slate-700')
   })
 
   it('should highlight Cron Logs when active', () => {
     mockRouter.pathname = '/admin/cron-logs'
     render(<Header />)
     
-    // Open hamburger menu if needed
-    let cronLogsLink = screen.queryByText('Cron Logs')
-    if (!cronLogsLink) {
-      const hamburgerButton = screen.getByLabelText('Toggle navigation menu')
-      fireEvent.click(hamburgerButton)
-    }
+    // Open SlackyHub dropdown to see the links
+    const slackyHubButton = screen.getByText('SlackyHub')
+    fireEvent.click(slackyHubButton)
     
-    cronLogsLink = screen.getByText('Cron Logs').closest('a')
-    expect(cronLogsLink).toHaveClass('bg-slate-600')
+    const cronLogsLink = screen.getByText('Cron Logs').closest('a')
+    expect(cronLogsLink).toHaveClass('bg-slate-700')
   })
 })
 

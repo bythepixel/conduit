@@ -17,7 +17,7 @@ export default async function handler(
     if (req.method === 'DELETE') {
         try {
             // Check if company is used in any mappings
-            const mappingCount = await prisma.mapping.count({
+            const mappingCount = await prisma.slackMapping.count({
                 where: { hubspotCompanyId: Number(id) }
             })
 
@@ -40,7 +40,7 @@ export default async function handler(
     }
 
     if (req.method === 'PUT') {
-        const { companyId, name } = req.body
+        const { companyId, name, btpAbbreviation, activeClient } = req.body
 
         if (!companyId) {
             return res.status(400).json({ error: "companyId is required" })
@@ -52,11 +52,17 @@ export default async function handler(
                 data: {
                     companyId,
                     name,
+                    btpAbbreviation,
+                    activeClient: activeClient !== undefined ? activeClient : undefined,
                 },
             })
             return res.status(200).json(company)
         } catch (e: any) {
             if (e.code === 'P2002') {
+                // Check which unique constraint was violated
+                if (e.meta?.target?.includes('btpAbbreviation')) {
+                    return res.status(400).json({ error: "BTP Abbreviation already exists" })
+                }
                 return res.status(400).json({ error: "Company ID already exists" })
             }
             if (e.code === 'P2025') {

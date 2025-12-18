@@ -19,7 +19,7 @@ type MappingSlackChannel = {
     slackChannel: SlackChannel
 }
 
-type Mapping = {
+type SlackMapping = {
     id: number
     title?: string
     slackChannels: MappingSlackChannel[]
@@ -47,7 +47,7 @@ import { useRouter } from "next/router"
 export default function Home() {
     const { data: session, status } = useSession()
     const router = useRouter()
-    const [mappings, setMappings] = useState<Mapping[]>([])
+    const [mappings, setMappings] = useState<SlackMapping[]>([])
     const [slackChannels, setSlackChannels] = useState<SlackChannel[]>([])
     const [hubspotCompanies, setHubspotCompanies] = useState<HubspotCompany[]>([])
     const [loading, setLoading] = useState(true)
@@ -79,7 +79,7 @@ export default function Home() {
     }
 
     const fetchMappings = async () => {
-        const res = await fetch('/api/mappings')
+        const res = await fetch('/api/slack-mappings')
         const data = await res.json()
         setMappings(data)
         setLoading(false)
@@ -102,7 +102,7 @@ export default function Home() {
     }
 
     const handleDelete = async (id: number) => {
-        await fetch(`/api/mappings/${id}`, { method: 'DELETE' })
+        await fetch(`/api/slack-mappings/${id}`, { method: 'DELETE' })
         fetchMappings()
     }
 
@@ -121,7 +121,7 @@ export default function Home() {
 
         try {
             if (editingId) {
-                const res = await fetch(`/api/mappings/${editingId}`, {
+                const res = await fetch(`/api/slack-mappings/${editingId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -145,7 +145,7 @@ export default function Home() {
                     return
                 }
 
-                const res = await fetch('/api/mappings', {
+                const res = await fetch('/api/slack-mappings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -172,7 +172,7 @@ export default function Home() {
         }
     }
 
-    const handleEdit = (mapping: Mapping) => {
+    const handleEdit = (mapping: SlackMapping) => {
         setForm({
             title: mapping.title || '',
             channelIds: mapping.slackChannels.map(msc => msc.slackChannel.id),
@@ -251,7 +251,7 @@ export default function Home() {
     return (
         <div className="min-h-screen bg-slate-900 font-sans">
             <Head>
-                <title>Mappings - Slacky Hub</title>
+                <title>Slack Mappings - Conduit</title>
             </Head>
 
             <Header />
@@ -440,7 +440,7 @@ export default function Home() {
                     {/* List */}
                     <div className="space-y-4">
                         <h2 className="text-xl font-bold text-slate-100 mb-4 flex items-center gap-2">
-                            <span>🔗</span> Mappings
+                            <span>🔗</span> Slack Mappings
                         </h2>
                         {loading ? (
                             <div className="animate-pulse space-y-4">

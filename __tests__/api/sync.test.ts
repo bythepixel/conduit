@@ -74,13 +74,13 @@ describe('/api/sync', () => {
       const mockMessagesText = 'John Doe: Hello\nUser456: World'
       const mockSummary = 'Test summary'
 
-      mockPrisma.mapping.findMany.mockResolvedValue([mockMapping] as any)
+      mockPrisma.slackMapping.findMany.mockResolvedValue([mockMapping] as any)
       mockPrisma.prompt.findFirst.mockResolvedValue(null)
       mockGetUserMap.mockResolvedValue(mockUserMap)
       mockFetchRecentMessages.mockResolvedValue(mockHistory as any)
       mockFormatMessagesForSummary.mockReturnValue(mockMessagesText)
       mockGenerateSummary.mockResolvedValue(mockSummary)
-      mockPrisma.mapping.update.mockResolvedValue({} as any)
+      mockPrisma.slackMapping.update.mockResolvedValue({} as any)
 
       const req = createMockRequest('POST', { mappingId: 1 })
       const res = createMockResponse()
@@ -142,20 +142,20 @@ describe('/api/sync', () => {
       const mockMessagesText = 'Test messages'
       const mockSummary = 'Summary'
 
-      mockPrisma.mapping.findMany.mockResolvedValue(mockMappings as any)
+      mockPrisma.slackMapping.findMany.mockResolvedValue(mockMappings as any)
       mockPrisma.prompt.findFirst.mockResolvedValue(null)
       mockGetUserMap.mockResolvedValue(mockUserMap)
       mockFetchRecentMessages.mockResolvedValue(mockHistory as any)
       mockFormatMessagesForSummary.mockReturnValue(mockMessagesText)
       mockGenerateSummary.mockResolvedValue(mockSummary)
-      mockPrisma.mapping.update.mockResolvedValue({} as any)
+      mockPrisma.slackMapping.update.mockResolvedValue({} as any)
 
       const req = createMockRequest('POST', {})
       const res = createMockResponse()
 
       await handler(req as any, res)
 
-      expect(mockPrisma.mapping.findMany).toHaveBeenCalledWith({
+      expect(mockPrisma.slackMapping.findMany).toHaveBeenCalledWith({
         where: {},
         include: expect.any(Object),
       })
@@ -184,7 +184,7 @@ describe('/api/sync', () => {
       const mockMessagesText = 'Test messages'
       const mockSummary = 'Test summary'
 
-      mockPrisma.mapping.findMany.mockResolvedValue([mockMapping] as any)
+      mockPrisma.slackMapping.findMany.mockResolvedValue([mockMapping] as any)
       mockPrisma.prompt.findFirst.mockResolvedValue(null)
       mockGetUserMap.mockResolvedValue(mockUserMap)
       mockFetchRecentMessages.mockResolvedValue(mockHistory as any)
@@ -198,7 +198,7 @@ describe('/api/sync', () => {
 
       // Should not create HubSpot note or update mapping in test mode
       expect(mockCreateCompanyNote).not.toHaveBeenCalled()
-      expect(mockPrisma.mapping.update).not.toHaveBeenCalled()
+      expect(mockPrisma.slackMapping.update).not.toHaveBeenCalled()
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           results: expect.arrayContaining([
@@ -227,7 +227,7 @@ describe('/api/sync', () => {
         },
       }
 
-      mockPrisma.mapping.findMany.mockResolvedValue([mockMapping] as any)
+      mockPrisma.slackMapping.findMany.mockResolvedValue([mockMapping] as any)
       mockPrisma.prompt.findFirst.mockResolvedValue(null)
       mockGetUserMap.mockResolvedValue(new Map())
       mockFetchRecentMessages.mockResolvedValue({ messages: [] } as any)
@@ -270,14 +270,14 @@ describe('/api/sync', () => {
       const mockMessagesText = 'Test messages'
       const mockFallbackSummary = 'Fallback summary'
 
-      mockPrisma.mapping.findMany.mockResolvedValue([mockMapping] as any)
+      mockPrisma.slackMapping.findMany.mockResolvedValue([mockMapping] as any)
       mockPrisma.prompt.findFirst.mockResolvedValue(null)
       mockGetUserMap.mockResolvedValue(mockUserMap)
       mockFetchRecentMessages.mockResolvedValue(mockHistory as any)
       mockFormatMessagesForSummary.mockReturnValue(mockMessagesText)
       mockGenerateSummary.mockRejectedValue(new Error('OpenAI error'))
       mockGenerateFallbackSummary.mockReturnValue(mockFallbackSummary)
-      mockPrisma.mapping.update.mockResolvedValue({} as any)
+      mockPrisma.slackMapping.update.mockResolvedValue({} as any)
 
       const req = createMockRequest('POST', {})
       const res = createMockResponse()
@@ -334,7 +334,7 @@ describe('/api/sync', () => {
       const mockUserMap = new Map()
       const mockMessagesText = 'Test messages'
 
-      mockPrisma.mapping.findMany.mockResolvedValue(mockMappings as any)
+      mockPrisma.slackMapping.findMany.mockResolvedValue(mockMappings as any)
       mockPrisma.prompt.findFirst.mockResolvedValue(null)
       mockGetUserMap.mockResolvedValue(mockUserMap)
       // First channel fails, second succeeds
@@ -343,7 +343,7 @@ describe('/api/sync', () => {
         .mockResolvedValueOnce(mockHistory as any)
       mockFormatMessagesForSummary.mockReturnValue(mockMessagesText)
       mockGenerateSummary.mockResolvedValue('Summary')
-      mockPrisma.mapping.update.mockResolvedValue({} as any)
+      mockPrisma.slackMapping.update.mockResolvedValue({} as any)
 
       const req = createMockRequest('POST', {})
       const res = createMockResponse()
@@ -393,13 +393,13 @@ describe('/api/sync', () => {
       const mockMessagesText = 'Test messages'
       const mockSummary = 'Summary'
 
-      mockPrisma.mapping.findMany.mockResolvedValue([mockMapping] as any)
+      mockPrisma.slackMapping.findMany.mockResolvedValue([mockMapping] as any)
       mockPrisma.prompt.findFirst.mockResolvedValue(mockPrompt as any)
       mockGetUserMap.mockResolvedValue(mockUserMap)
       mockFetchRecentMessages.mockResolvedValue(mockHistory as any)
       mockFormatMessagesForSummary.mockReturnValue(mockMessagesText)
       mockGenerateSummary.mockResolvedValue(mockSummary)
-      mockPrisma.mapping.update.mockResolvedValue({} as any)
+      mockPrisma.slackMapping.update.mockResolvedValue({} as any)
 
       const req = createMockRequest('POST', {})
       const res = createMockResponse()
@@ -476,7 +476,7 @@ describe('/api/sync', () => {
         mappingsExecuted: 0,
         mappingsFailed: 0,
       } as any)
-      mockPrisma.mapping.findMany.mockResolvedValue([])
+      mockPrisma.slackMapping.findMany.mockResolvedValue([])
       mockPrisma.prompt.findFirst.mockResolvedValue(null)
       mockGetUserMap.mockResolvedValue(new Map())
       mockPrisma.cronLog.update.mockResolvedValue({} as any)
@@ -487,7 +487,7 @@ describe('/api/sync', () => {
       await handler(req as any, res)
 
       expect(mockPrisma.cronLog.create).toHaveBeenCalled()
-      expect(mockPrisma.mapping.findMany).toHaveBeenCalledWith({
+      expect(mockPrisma.slackMapping.findMany).toHaveBeenCalledWith({
         where: { cadence: { in: ['daily'] } },
         include: expect.any(Object),
       })
@@ -526,7 +526,7 @@ describe('/api/sync', () => {
           results: [],
         })
       )
-      expect(mockPrisma.mapping.findMany).not.toHaveBeenCalled()
+      expect(mockPrisma.slackMapping.findMany).not.toHaveBeenCalled()
       expect(mockPrisma.cronLog.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 1 },
@@ -552,7 +552,7 @@ describe('/api/sync', () => {
 
   describe('Error handling', () => {
     it('should handle database errors gracefully', async () => {
-      mockPrisma.mapping.findMany.mockRejectedValue(new Error('Database error'))
+      mockPrisma.slackMapping.findMany.mockRejectedValue(new Error('Database error'))
 
       const req = createMockRequest('POST', {})
       const res = createMockResponse()

@@ -15,7 +15,7 @@ export default async function handler(
     if (!validateMethod(req, res, ['GET', 'POST'])) return
 
     if (req.method === 'GET') {
-        const mappings = await prisma.mapping.findMany({
+        const mappings = await prisma.slackMapping.findMany({
             orderBy: { createdAt: 'desc' },
             include: {
                 slackChannels: {
@@ -63,7 +63,7 @@ export default async function handler(
             const cadenceValue = cadence && VALID_CADENCES.includes(cadence as any) ? cadence : DEFAULT_CADENCE
 
             // Create mapping with multiple channels
-            const mapping = await prisma.mapping.create({
+            const mapping = await prisma.slackMapping.create({
                 data: {
                     title,
                     hubspotCompanyId: hubspotCompany.id,
@@ -89,3 +89,4 @@ export default async function handler(
         }
     }
 }
+

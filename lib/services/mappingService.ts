@@ -28,7 +28,7 @@ export async function fetchMappingsForSync(
 ) {
     const whereClause = buildMappingWhereClause(mappingId, cadenceResult)
     
-    const mappings = await prisma.mapping.findMany({ 
+    const mappings = await prisma.slackMapping.findMany({ 
         where: whereClause,
         include: {
             slackChannels: {

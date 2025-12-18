@@ -1,4 +1,4 @@
-import handler from '../../../pages/api/mappings/index'
+import handler from '../../../pages/api/slack-mappings/index'
 import { createMockRequest, createMockResponse, createMockSession } from '../../utils/testHelpers'
 import { mockPrisma } from '../../utils/mocks'
 import { requireAuth } from '../../../lib/middleware/auth'
@@ -25,7 +25,7 @@ const mockRequireAuth = requireAuth as jest.MockedFunction<typeof requireAuth>
 const mockValidateMethod = validateMethod as jest.MockedFunction<typeof validateMethod>
 const mockHandleError = handleError as jest.MockedFunction<typeof handleError>
 
-describe('/api/mappings', () => {
+describe('/api/slack-mappings', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockRequireAuth.mockResolvedValue(createMockSession() as any)
@@ -44,14 +44,14 @@ describe('/api/mappings', () => {
         },
       ]
 
-      mockPrisma.mapping.findMany.mockResolvedValue(mockMappings as any)
+      mockPrisma.slackMapping.findMany.mockResolvedValue(mockMappings as any)
 
       const req = createMockRequest('GET')
       const res = createMockResponse()
 
       await handler(req as any, res)
 
-      expect(mockPrisma.mapping.findMany).toHaveBeenCalledWith({
+      expect(mockPrisma.slackMapping.findMany).toHaveBeenCalledWith({
         orderBy: { createdAt: 'desc' },
         include: expect.objectContaining({
           slackChannels: expect.any(Object),
@@ -85,7 +85,7 @@ describe('/api/mappings', () => {
 
       mockPrisma.hubspotCompany.findUnique.mockResolvedValue(mockCompany as any)
       mockPrisma.slackChannel.findMany.mockResolvedValue(mockChannels as any)
-      mockPrisma.mapping.create.mockResolvedValue(createdMapping as any)
+      mockPrisma.slackMapping.create.mockResolvedValue(createdMapping as any)
 
       const req = createMockRequest('POST', {
         channelIds: [1, 2],
@@ -97,7 +97,7 @@ describe('/api/mappings', () => {
 
       await handler(req as any, res)
 
-      expect(mockPrisma.mapping.create).toHaveBeenCalledWith(
+      expect(mockPrisma.slackMapping.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             title: 'Test Mapping',
@@ -201,7 +201,7 @@ describe('/api/mappings', () => {
 
       mockPrisma.hubspotCompany.findUnique.mockResolvedValue(mockCompany as any)
       mockPrisma.slackChannel.findMany.mockResolvedValue(mockChannels as any)
-      mockPrisma.mapping.create.mockResolvedValue({
+      mockPrisma.slackMapping.create.mockResolvedValue({
         id: 1,
         cadence: 'daily',
       } as any)
@@ -215,7 +215,7 @@ describe('/api/mappings', () => {
 
       await handler(req as any, res)
 
-      expect(mockPrisma.mapping.create).toHaveBeenCalledWith(
+      expect(mockPrisma.slackMapping.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             cadence: 'daily',
@@ -232,7 +232,7 @@ describe('/api/mappings', () => {
       mockPrisma.slackChannel.findMany.mockResolvedValue(mockChannels as any)
 
       const error = new Error('Creation failed')
-      mockPrisma.mapping.create.mockRejectedValue(error)
+      mockPrisma.slackMapping.create.mockRejectedValue(error)
 
       const req = createMockRequest('POST', {
         channelIds: [1],
@@ -246,6 +246,4 @@ describe('/api/mappings', () => {
     })
   })
 })
-
-
 

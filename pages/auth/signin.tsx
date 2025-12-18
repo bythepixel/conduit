@@ -37,12 +37,12 @@ export default function SignIn() {
     return (
         <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
             <Head>
-                <title>Sign In - Slacky Hub</title>
+                <title>Sign In - Conduit</title>
             </Head>
             <div className="bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-700 w-full max-w-md space-y-6">
                 <div className="text-center">
                     <h1 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 bg-clip-text text-transparent">
-                        Slacky Hub
+                        Conduit
                     </h1>
                     <p className="text-slate-500 mt-2">Sign in to your account</p>
                 </div>

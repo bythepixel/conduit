@@ -53,10 +53,10 @@ Slacky Hub is a Next.js application that automates the synchronization of Slack 
 **UI Location**: Home page (`/`)
 
 **API Endpoints**:
-- `GET /api/mappings` - List all mappings
-- `POST /api/mappings` - Create new mapping
-- `PUT /api/mappings/[id]` - Update mapping
-- `DELETE /api/mappings/[id]` - Delete mapping
+- `GET /api/slack-mappings` - List all slack mappings
+- `POST /api/slack-mappings` - Create new slack mapping
+- `PUT /api/slack-mappings/[id]` - Update slack mapping
+- `DELETE /api/slack-mappings/[id]` - Delete slack mapping
 
 ---
 

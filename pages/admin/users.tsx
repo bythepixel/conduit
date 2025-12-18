@@ -157,7 +157,7 @@ export default function Users() {
     return (
         <div className="min-h-screen bg-slate-900 font-sans">
             <Head>
-                <title>User Management - Slacky Hub</title>
+                <title>User Management - Conduit</title>
             </Head>
 
             <Header />

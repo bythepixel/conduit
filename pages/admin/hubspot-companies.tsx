@@ -8,6 +8,8 @@ type HubspotCompany = {
     id: number
     companyId: string
     name?: string
+    btpAbbreviation?: string
+    activeClient: boolean
     createdAt: string
     updatedAt: string
     _count?: {
@@ -19,7 +21,7 @@ export default function HubspotCompanies() {
     const { data: session, status } = useSession()
     const router = useRouter()
     const [companies, setCompanies] = useState<HubspotCompany[]>([])
-    const [form, setForm] = useState({ companyId: '', name: '' })
+    const [form, setForm] = useState({ companyId: '', name: '', btpAbbreviation: '', activeClient: false })
     const [loading, setLoading] = useState(true)
     const [editingId, setEditingId] = useState<number | null>(null)
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; companyId: number | null }>({ show: false, companyId: null })
@@ -80,7 +82,7 @@ export default function HubspotCompanies() {
                 }
             }
 
-            setForm({ companyId: '', name: '' })
+            setForm({ companyId: '', name: '', btpAbbreviation: '', activeClient: false })
             setFormOpen(false)
             await fetchCompanies()
         } catch (error: any) {
@@ -91,15 +93,40 @@ export default function HubspotCompanies() {
     const handleEdit = (company: HubspotCompany) => {
         setForm({
             companyId: company.companyId,
-            name: company.name || ''
+            name: company.name || '',
+            btpAbbreviation: company.btpAbbreviation || '',
+            activeClient: company.activeClient
         })
         setEditingId(company.id)
         setFormOpen(true)
     }
 
+    const handleToggleActiveClient = async (id: number, activeClient: boolean) => {
+        try {
+            const res = await fetch(`/api/hubspot-companies/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    companyId: companies.find(c => c.id === id)?.companyId,
+                    name: companies.find(c => c.id === id)?.name,
+                    btpAbbreviation: companies.find(c => c.id === id)?.btpAbbreviation,
+                    activeClient
+                }),
+            })
+            if (!res.ok) {
+                const error = await res.json()
+                alert(error.error || 'Failed to update company')
+                return
+            }
+            await fetchCompanies()
+        } catch (error: any) {
+            alert('An error occurred: ' + (error.message || 'Unknown error'))
+        }
+    }
+
     const handleCancelEdit = () => {
         setEditingId(null)
-        setForm({ companyId: '', name: '' })
+        setForm({ companyId: '', name: '', btpAbbreviation: '', activeClient: false })
         setFormOpen(false)
     }
 
@@ -162,7 +189,7 @@ export default function HubspotCompanies() {
     return (
         <div className="min-h-screen bg-slate-900 font-sans">
             <Head>
-                <title>HubSpot Companies - Slacky Hub</title>
+                <title>HubSpot Companies - Conduit</title>
             </Head>
 
             <Header />
@@ -170,80 +197,60 @@ export default function HubspotCompanies() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
                 <div className="grid grid-cols-1 lg:grid-cols-[30%_1fr] gap-8">
-                    {/* Form */}
-                    <div>
-                        {/* Sync Button */}
-                        <button
-                            onClick={handleSync}
-                            disabled={syncing}
-                            className={`w-full mb-4 px-6 py-3 rounded-xl font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${
-                                syncing
-                                    ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
-                                    : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
-                            }`}
-                            title="Sync all companies from HubSpot"
-                        >
-                            {syncing ? (
-                                <>
-                                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    <span>Syncing...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2"/>
-                                    </svg>
-                                    <span>Sync from HubSpot</span>
-                                </>
-                            )}
-                        </button>
-                        <div className={`bg-slate-800 rounded-2xl shadow-sm border border-slate-700 sticky top-20 ${(formOpen || editingId) ? 'p-6' : 'px-6 pt-6 pb-6'}`}>
-                            <h2 
-                                className={`text-xl font-bold text-slate-100 flex items-center gap-2 ${(formOpen || editingId) ? 'mb-6' : 'mb-0'} ${!editingId ? 'cursor-pointer hover:text-indigo-400 transition-colors' : ''}`}
-                                onClick={() => !editingId && setFormOpen(!formOpen)}
-                            >
-                                {editingId ? (
-                                    <>
-                                        <span>✏️</span> Edit Company
-                                    </>
-                                ) : (
-                                    <>
-                                        <span className="transition-transform duration-200" style={{ transform: formOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-                                        + New Company
-                                    </>
-                                )}
-                            </h2>
-                            {(formOpen || editingId) && (
+                    {/* Form - Only shown when editing */}
+                    {editingId && (
+                        <div>
+                            <div className="bg-slate-800 rounded-2xl shadow-sm border border-slate-700 sticky top-20 p-6">
+                                <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2 mb-6">
+                                    <span>✏️</span> Edit Company
+                                </h2>
                                 <form onSubmit={handleSubmit} className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Company ID <span className="text-red-500">*</span></label>
-                                    <input 
-                                        type="text" 
-                                        required 
-                                        className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-mono" 
-                                        value={form.companyId} 
-                                        onChange={e => setForm({ ...form, companyId: e.target.value })} 
-                                        placeholder="123456789"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Company Name</label>
-                                    <input 
-                                        type="text" 
-                                        className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" 
-                                        value={form.name} 
-                                        onChange={e => setForm({ ...form, name: e.target.value })} 
-                                        placeholder="Acme Corp"
-                                    />
-                                </div>
-                                <div className="flex gap-2">
-                                    <button type="submit" className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-semibold shadow-lg hover:bg-slate-800 transition-all active:scale-95">
-                                        {editingId ? 'Update Company' : 'Create Company'}
-                                    </button>
-                                    {editingId && (
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Company Name</label>
+                                        <input 
+                                            type="text" 
+                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" 
+                                            value={form.name} 
+                                            onChange={e => setForm({ ...form, name: e.target.value })} 
+                                            placeholder="Acme Corp"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Company ID <span className="text-red-500">*</span></label>
+                                        <input 
+                                            type="text" 
+                                            required 
+                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-mono" 
+                                            value={form.companyId} 
+                                            onChange={e => setForm({ ...form, companyId: e.target.value })} 
+                                            placeholder="123456789"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">BTP Abbreviation</label>
+                                        <input 
+                                            type="text" 
+                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" 
+                                            value={form.btpAbbreviation} 
+                                            onChange={e => setForm({ ...form, btpAbbreviation: e.target.value })} 
+                                            placeholder="ACME"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={form.activeClient}
+                                                onChange={(e) => setForm({ ...form, activeClient: e.target.checked })}
+                                                className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-green-500 focus:ring-green-500 focus:ring-2"
+                                            />
+                                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Client</span>
+                                        </label>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button type="submit" className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-semibold shadow-lg hover:bg-slate-800 transition-all active:scale-95">
+                                            Update Company
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={handleCancelEdit}
@@ -251,27 +258,14 @@ export default function HubspotCompanies() {
                                         >
                                             Cancel
                                         </button>
-                                    )}
-                                </div>
-                            </form>
-                            )}
+                                    </div>
+                                </form>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* List */}
-                    <div>
-                        <div className="flex items-center justify-between mb-3">
-                            <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                                <span>🏢</span> All Companies
-                            </h2>
-                            <input
-                                type="text"
-                                placeholder="Search companies..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="px-3 py-1.5 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm w-48"
-                            />
-                        </div>
+                    <div className={editingId ? '' : 'lg:col-span-2'}>
                         {loading ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                                 {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-16 bg-slate-800 rounded-lg shadow-sm" />)}
@@ -281,30 +275,35 @@ export default function HubspotCompanies() {
                                 No companies found. Create your first company!
                             </div>
                         ) : (() => {
+                            // Filter companies by search
                             const filteredCompanies = companies.filter(c => {
                                 if (!search.trim()) return true
                                 const searchLower = search.toLowerCase()
                                 const name = c.name?.toLowerCase() || ''
                                 const companyId = c.companyId.toLowerCase()
-                                return name.includes(searchLower) || companyId.includes(searchLower)
+                                const btpAbbr = c.btpAbbreviation?.toLowerCase() || ''
+                                return name.includes(searchLower) || companyId.includes(searchLower) || btpAbbr.includes(searchLower)
                             })
                             
-                            if (filteredCompanies.length === 0) {
-                                return (
-                                    <div className="text-center py-8 bg-slate-800 rounded-lg border-2 border-dashed border-slate-600 text-slate-500 text-sm">
-                                        No companies match "{search}"
-                                    </div>
-                                )
-                            }
+                            // Group companies by activeClient
+                            const partnerCompanies = filteredCompanies.filter(c => c.activeClient)
+                            const contactCompanies = filteredCompanies.filter(c => !c.activeClient)
                             
-                            return (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-                                {filteredCompanies.map(c => (
-                                <div key={c.id} className="group bg-slate-800 p-3 rounded-lg shadow-sm border border-slate-700 hover:shadow-md transition-all">
+                            const renderCompanyCard = (c: HubspotCompany) => (
+                                <div key={c.id} className={`group p-3 rounded-lg shadow-sm border hover:shadow-md transition-all ${
+                                    c.activeClient 
+                                        ? 'bg-green-900/30 border-green-700/50' 
+                                        : 'bg-slate-800 border-slate-700'
+                                }`}>
                                     <div className="flex justify-between items-center">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-0.5">
                                                 <p className="font-semibold text-sm text-slate-100 truncate">{c.name || 'Unnamed Company'}</p>
+                                                {c.btpAbbreviation && (
+                                                    <span className="px-1.5 py-0.5 bg-indigo-500/20 text-indigo-300 text-xs font-semibold rounded">
+                                                        {c.btpAbbreviation}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <p className="text-slate-500 text-xs font-mono">{c.companyId}</p>
@@ -316,6 +315,16 @@ export default function HubspotCompanies() {
                                             </div>
                                         </div>
                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-3 flex-shrink-0">
+                                            <label className="flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={c.activeClient}
+                                                    onChange={(e) => handleToggleActiveClient(c.id, e.target.checked)}
+                                                    className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-green-500 focus:ring-green-500 focus:ring-2"
+                                                    title="Active Client"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            </label>
                                             <button
                                                 type="button"
                                                 onClick={() => handleEdit(c)}
@@ -335,7 +344,79 @@ export default function HubspotCompanies() {
                                         </div>
                                     </div>
                                 </div>
-                            ))}
+                            )
+                            
+                            if (partnerCompanies.length === 0 && contactCompanies.length === 0) {
+                                return (
+                                    <div className="text-center py-8 bg-slate-800 rounded-lg border-2 border-dashed border-slate-600 text-slate-500 text-sm">
+                                        No companies match "{search}"
+                                    </div>
+                                )
+                            }
+                            
+                            return (
+                                <div className="space-y-6">
+                                    {/* Partner Companies */}
+                                    {partnerCompanies.length > 0 && (
+                                        <div>
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h3 className="text-md font-bold text-slate-200 flex items-center gap-2">
+                                                    <span>🤝</span> Partner Companies
+                                                </h3>
+                                                <div className="flex items-center gap-3">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search companies..."
+                                                        value={search}
+                                                        onChange={(e) => setSearch(e.target.value)}
+                                                        className="px-3 py-1.5 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm w-48"
+                                                    />
+                                                    <button
+                                                        onClick={handleSync}
+                                                        disabled={syncing}
+                                                        className={`px-4 py-1.5 rounded-lg font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${
+                                                            syncing
+                                                                ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
+                                                                : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
+                                                        }`}
+                                                        title="Sync all companies from HubSpot"
+                                                    >
+                                                        {syncing ? (
+                                                            <>
+                                                                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                </svg>
+                                                                <span className="text-sm">Syncing...</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2"/>
+                                                                </svg>
+                                                                <span className="text-sm">Sync</span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                                                {partnerCompanies.map(renderCompanyCard)}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Contact Companies */}
+                                    {contactCompanies.length > 0 && (
+                                        <div>
+                                            <h3 className="text-md font-bold text-slate-200 mb-3 flex items-center gap-2">
+                                                <span>📇</span> Contact Companies
+                                            </h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                                                {contactCompanies.map(renderCompanyCard)}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )
                         })()}

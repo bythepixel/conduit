@@ -100,7 +100,7 @@ export async function processMapping(
                 )
 
                 // Update last synced timestamp
-                await prisma.mapping.update({
+                await prisma.slackMapping.update({
                     where: { id: mapping.id },
                     data: { lastSyncedAt: new Date() }
                 })

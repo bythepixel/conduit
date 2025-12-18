@@ -13,7 +13,7 @@ export const mockPrisma = {
     delete: jest.fn(),
     count: jest.fn(),
   },
-  mapping: {
+  slackMapping: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
     create: jest.fn(),

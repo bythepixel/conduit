@@ -17,21 +17,24 @@ model SlackChannel {
   id        Int                   @id @default(autoincrement())
   channelId String                @unique
   name      String?
+  isClient  Boolean               @default(false)
   mappings  MappingSlackChannel[]
   createdAt DateTime              @default(now())
   updatedAt DateTime              @updatedAt
 }
 
 model HubspotCompany {
-  id        Int       @id @default(autoincrement())
-  companyId String    @unique
-  name      String?
-  mappings  Mapping[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id             Int            @id @default(autoincrement())
+  companyId      String         @unique
+  name           String?
+  btpAbbreviation String?       @unique
+  activeClient   Boolean        @default(false)
+  mappings       SlackMapping[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 }
 
-model Mapping {
+model SlackMapping {
   id               Int                   @id @default(autoincrement())
   title            String?
   hubspotCompanyId Int
@@ -47,12 +50,12 @@ model Mapping {
 }
 
 model MappingSlackChannel {
-  id             Int          @id @default(autoincrement())
+  id             Int           @id @default(autoincrement())
   mappingId      Int
   slackChannelId Int
-  mapping        Mapping      @relation(fields: [mappingId], references: [id], onDelete: Cascade)
-  slackChannel   SlackChannel @relation(fields: [slackChannelId], references: [id], onDelete: Cascade)
-  createdAt      DateTime     @default(now())
+  mapping        SlackMapping  @relation(fields: [mappingId], references: [id], onDelete: Cascade)
+  slackChannel   SlackChannel  @relation(fields: [slackChannelId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
 
   @@unique([mappingId, slackChannelId])
   @@index([mappingId])
@@ -102,16 +105,34 @@ model CronLog {
 }
 
 model CronLogMapping {
-  id           Int      @id @default(autoincrement())
+  id           Int           @id @default(autoincrement())
   cronLogId    Int
-  cronLog      CronLog  @relation(fields: [cronLogId], references: [id], onDelete: Cascade)
+  cronLog      CronLog       @relation(fields: [cronLogId], references: [id], onDelete: Cascade)
   mappingId    Int
-  mapping      Mapping  @relation(fields: [mappingId], references: [id], onDelete: Cascade)
+  mapping      SlackMapping  @relation(fields: [mappingId], references: [id], onDelete: Cascade)
   status       String // 'success', 'failed', 'skipped'
   errorMessage String? // Error message if failed
-  createdAt    DateTime @default(now())
+  createdAt    DateTime      @default(now())
 
   @@unique([cronLogId, mappingId])
   @@index([cronLogId])
   @@index([mappingId])
+}
+
+model MeetingNote {
+  id            Int       @id @default(autoincrement())
+  meetingId     String    @unique // Fireflies.ai meeting ID
+  title         String?
+  notes         String?   @db.Text
+  transcriptUrl String?
+  summary       String?   @db.Text
+  participants  String[] // Array of participant names/emails
+  duration      Int?      // Duration in minutes
+  meetingDate   DateTime?
+  metadata      Json?     // Additional metadata from Fireflies.ai
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([meetingId])
+  @@index([meetingDate])
 }

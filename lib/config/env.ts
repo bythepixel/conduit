@@ -10,6 +10,10 @@ const REQUIRED_ENV_VARS = [
     'NEXTAUTH_SECRET',
 ] as const
 
+const OPTIONAL_ENV_VARS = [
+    'FIREFLIES_API_KEY',
+] as const
+
 /**
  * Validates that all required environment variables are set
  * Throws an error if any are missing

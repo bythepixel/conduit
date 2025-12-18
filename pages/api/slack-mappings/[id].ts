@@ -18,7 +18,7 @@ export default async function handler(
 
     if (req.method === 'DELETE') {
         try {
-            await prisma.mapping.delete({
+            await prisma.slackMapping.delete({
                 where: { id: Number(id) },
             })
             return res.status(204).end()
@@ -32,7 +32,7 @@ export default async function handler(
         
         try {
             // Get existing mapping
-            const existingMapping = await prisma.mapping.findUnique({
+            const existingMapping = await prisma.slackMapping.findUnique({
                 where: { id: Number(id) },
                 include: {
                     slackChannels: {
@@ -72,7 +72,7 @@ export default async function handler(
             const cadenceValue = cadence && VALID_CADENCES.includes(cadence as any) ? cadence : DEFAULT_CADENCE
 
             // Update mapping with new channels
-            const mapping = await prisma.mapping.update({
+            const mapping = await prisma.slackMapping.update({
                 where: { id: Number(id) },
                 data: {
                     title,
@@ -100,3 +100,4 @@ export default async function handler(
         }
     }
 }
+

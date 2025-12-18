@@ -14,7 +14,10 @@ export default async function handler(
 
     if (req.method === 'GET') {
         const companies = await prisma.hubspotCompany.findMany({
-            orderBy: { createdAt: 'desc' },
+            orderBy: [
+                { name: 'asc' },
+                { companyId: 'asc' } // Secondary sort by companyId for companies without names
+            ],
             include: {
                 _count: {
                     select: { mappings: true }
@@ -25,7 +28,7 @@ export default async function handler(
     }
 
     if (req.method === 'POST') {
-        const { companyId, name } = req.body
+        const { companyId, name, btpAbbreviation, activeClient } = req.body
         if (!companyId) {
             return res.status(400).json({ error: 'companyId is required' })
         }
@@ -34,11 +37,17 @@ export default async function handler(
                 data: {
                     companyId,
                     name,
+                    btpAbbreviation,
+                    activeClient: activeClient || false,
                 },
             })
             return res.status(201).json(company)
         } catch (e: any) {
             if (e.code === 'P2002') {
+                // Check which unique constraint was violated
+                if (e.meta?.target?.includes('btpAbbreviation')) {
+                    return res.status(400).json({ error: "BTP Abbreviation already exists" })
+                }
                 return res.status(400).json({ error: "Company ID already exists" })
             }
             return res.status(500).json({ error: e.message })

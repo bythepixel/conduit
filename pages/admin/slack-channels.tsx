@@ -8,6 +8,7 @@ type SlackChannel = {
     id: number
     channelId: string
     name?: string
+    isClient: boolean
     createdAt: string
     updatedAt: string
     _count?: {
@@ -19,13 +20,12 @@ export default function SlackChannels() {
     const { data: session, status } = useSession()
     const router = useRouter()
     const [channels, setChannels] = useState<SlackChannel[]>([])
-    const [form, setForm] = useState({ channelId: '', name: '' })
+    const [form, setForm] = useState({ channelId: '', name: '', isClient: false })
     const [loading, setLoading] = useState(true)
     const [editingId, setEditingId] = useState<number | null>(null)
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; channelId: number | null }>({ show: false, channelId: null })
     const [syncing, setSyncing] = useState(false)
     const [search, setSearch] = useState('')
-    const [formOpen, setFormOpen] = useState(false)
 
     useEffect(() => {
         if (status === "unauthenticated") {
@@ -80,8 +80,7 @@ export default function SlackChannels() {
                 }
             }
 
-            setForm({ channelId: '', name: '' })
-            setFormOpen(false)
+            setForm({ channelId: '', name: '', isClient: false })
             await fetchChannels()
         } catch (error: any) {
             alert('An error occurred: ' + (error.message || 'Unknown error'))
@@ -91,16 +90,37 @@ export default function SlackChannels() {
     const handleEdit = (channel: SlackChannel) => {
         setForm({
             channelId: channel.channelId,
-            name: channel.name || ''
+            name: channel.name || '',
+            isClient: channel.isClient
         })
         setEditingId(channel.id)
-        setFormOpen(true)
+    }
+
+    const handleToggleIsClient = async (id: number, isClient: boolean) => {
+        try {
+            const res = await fetch(`/api/slack-channels/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channelId: channels.find(c => c.id === id)?.channelId,
+                    name: channels.find(c => c.id === id)?.name,
+                    isClient
+                }),
+            })
+            if (!res.ok) {
+                const error = await res.json()
+                alert(error.error || 'Failed to update channel')
+                return
+            }
+            await fetchChannels()
+        } catch (error: any) {
+            alert('An error occurred: ' + (error.message || 'Unknown error'))
+        }
     }
 
     const handleCancelEdit = () => {
         setEditingId(null)
-        setForm({ channelId: '', name: '' })
-        setFormOpen(false)
+        setForm({ channelId: '', name: '', isClient: false })
     }
 
     const handleDeleteClick = (e: React.MouseEvent, id: number) => {
@@ -162,7 +182,7 @@ export default function SlackChannels() {
     return (
         <div className="min-h-screen bg-slate-900 font-sans">
             <Head>
-                <title>Slack Channels - Slacky Hub</title>
+                <title>Slack Channels - Conduit</title>
             </Head>
 
             <Header />
@@ -170,82 +190,50 @@ export default function SlackChannels() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
                 <div className="grid grid-cols-1 lg:grid-cols-[30%_1fr] gap-8">
-                    {/* Form */}
-                    <div>
-                        {/* Sync Button */}
-                        <button
-                            onClick={handleSync}
-                            disabled={syncing}
-                            className={`w-full mb-4 px-6 py-3 rounded-xl font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${
-                                syncing
-                                    ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
-                                    : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
-                            }`}
-                            title="Sync all channels from Slack"
-                        >
-                            {syncing ? (
-                                <>
-                                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    <span>Syncing...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="23 4 23 10 17 10"></polyline>
-                                        <polyline points="1 20 1 14 7 14"></polyline>
-                                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                                    </svg>
-                                    <span>Sync from Slack</span>
-                                </>
-                            )}
-                        </button>
-                        <div className={`bg-slate-800 rounded-2xl shadow-sm border border-slate-700 sticky top-20 ${(formOpen || editingId) ? 'p-6' : 'px-6 pt-6 pb-6'}`}>
-                            <h2 
-                                className={`text-xl font-bold text-slate-100 flex items-center gap-2 ${(formOpen || editingId) ? 'mb-6' : 'mb-0'} ${!editingId ? 'cursor-pointer hover:text-indigo-400 transition-colors' : ''}`}
-                                onClick={() => !editingId && setFormOpen(!formOpen)}
-                            >
-                                {editingId ? (
-                                    <>
-                                        <span>✏️</span> Edit Channel
-                                    </>
-                                ) : (
-                                    <>
-                                        <span className="transition-transform duration-200" style={{ transform: formOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-                                        + New Channel
-                                    </>
-                                )}
-                            </h2>
-                            {(formOpen || editingId) && (
+                    {/* Form - Only shown when editing */}
+                    {editingId && (
+                        <div>
+                            <div className="bg-slate-800 rounded-2xl shadow-sm border border-slate-700 sticky top-20 p-6">
+                                <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2 mb-6">
+                                    <span>✏️</span> Edit Channel
+                                </h2>
                                 <form onSubmit={handleSubmit} className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Channel ID <span className="text-red-500">*</span></label>
-                                    <input 
-                                        type="text" 
-                                        required 
-                                        className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-mono" 
-                                        value={form.channelId} 
-                                        onChange={e => setForm({ ...form, channelId: e.target.value })} 
-                                        placeholder="C12345678"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Channel Name</label>
-                                    <input 
-                                        type="text" 
-                                        className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" 
-                                        value={form.name} 
-                                        onChange={e => setForm({ ...form, name: e.target.value })} 
-                                        placeholder="#general"
-                                    />
-                                </div>
-                                <div className="flex gap-2">
-                                    <button type="submit" className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-semibold shadow-lg hover:bg-slate-800 transition-all active:scale-95">
-                                        {editingId ? 'Update Channel' : 'Create Channel'}
-                                    </button>
-                                    {editingId && (
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Channel Name</label>
+                                        <input 
+                                            type="text" 
+                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" 
+                                            value={form.name} 
+                                            onChange={e => setForm({ ...form, name: e.target.value })} 
+                                            placeholder="#general"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Channel ID <span className="text-red-500">*</span></label>
+                                        <input 
+                                            type="text" 
+                                            required 
+                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-mono" 
+                                            value={form.channelId} 
+                                            onChange={e => setForm({ ...form, channelId: e.target.value })} 
+                                            placeholder="C12345678"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={form.isClient}
+                                                onChange={(e) => setForm({ ...form, isClient: e.target.checked })}
+                                                className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-green-500 focus:ring-green-500 focus:ring-2"
+                                            />
+                                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Is Client</span>
+                                        </label>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button type="submit" className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-semibold shadow-lg hover:bg-slate-800 transition-all active:scale-95">
+                                            Update Channel
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={handleCancelEdit}
@@ -253,27 +241,14 @@ export default function SlackChannels() {
                                         >
                                             Cancel
                                         </button>
-                                    )}
-                                </div>
-                            </form>
-                            )}
+                                    </div>
+                                </form>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* List */}
-                    <div>
-                        <div className="flex items-center justify-between mb-3">
-                            <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                                <span>💬</span> All Channels
-                            </h2>
-                            <input
-                                type="text"
-                                placeholder="Search channels..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="px-3 py-1.5 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm w-48"
-                            />
-                        </div>
+                    <div className={editingId ? '' : 'lg:col-span-2'}>
                         {loading ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                                 {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-16 bg-slate-800 rounded-lg shadow-sm" />)}
@@ -283,6 +258,7 @@ export default function SlackChannels() {
                                 No channels found. Create your first channel!
                             </div>
                         ) : (() => {
+                            // Filter channels by search
                             const filteredChannels = channels.filter(c => {
                                 if (!search.trim()) return true
                                 const searchLower = search.toLowerCase()
@@ -291,7 +267,65 @@ export default function SlackChannels() {
                                 return name.includes(searchLower) || channelId.includes(searchLower)
                             })
                             
-                            if (filteredChannels.length === 0) {
+                            // Group channels by isClient
+                            const partnerChannels = filteredChannels.filter(c => c.isClient)
+                            const internalChannels = filteredChannels.filter(c => !c.isClient)
+                            
+                            const renderChannelCard = (c: SlackChannel) => (
+                                <div key={c.id} className={`group p-3 rounded-lg shadow-sm border hover:shadow-md transition-all ${
+                                    c.isClient 
+                                        ? 'bg-green-900/30 border-green-700/50' 
+                                        : 'bg-slate-800 border-slate-700'
+                                }`}>
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <p className="font-semibold text-sm text-slate-100 truncate">
+                                                    {c.name ? (c.name.startsWith('#') ? c.name : `#${c.name}`) : 'Unnamed Channel'}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <p className="text-slate-500 text-xs font-mono">{c.channelId}</p>
+                                                {c._count && c._count.mappings > 0 && (
+                                                    <span className="text-xs text-indigo-400">
+                                                        {c._count.mappings} mapping{c._count.mappings !== 1 ? 's' : ''}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-3 flex-shrink-0">
+                                            <label className="cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={c.isClient}
+                                                    onChange={(e) => handleToggleIsClient(c.id, e.target.checked)}
+                                                    className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-green-500 focus:ring-green-500 focus:ring-2"
+                                                    title="Is Client"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleEdit(c)}
+                                                className="text-blue-400 hover:text-blue-600 hover:bg-blue-900/20 p-1.5 rounded transition-colors"
+                                                title="Edit Channel"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleDeleteClick(e, c.id)}
+                                                className="text-red-400 hover:text-red-600 hover:bg-red-900/20 p-1.5 rounded transition-colors"
+                                                title="Delete Channel"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                            
+                            if (partnerChannels.length === 0 && internalChannels.length === 0) {
                                 return (
                                     <div className="text-center py-8 bg-slate-800 rounded-lg border-2 border-dashed border-slate-600 text-slate-500 text-sm">
                                         No channels match "{search}"
@@ -300,46 +334,70 @@ export default function SlackChannels() {
                             }
                             
                             return (
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-                                {filteredChannels.map(c => (
-                                    <div key={c.id} className="group bg-slate-800 p-3 rounded-lg shadow-sm border border-slate-700 hover:shadow-md transition-all">
-                                        <div className="flex justify-between items-center">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-0.5">
-                                                    <p className="font-semibold text-sm text-slate-100 truncate">
-                                                        {c.name ? (c.name.startsWith('#') ? c.name : `#${c.name}`) : 'Unnamed Channel'}
-                                                    </p>
-                                                </div>
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <p className="text-slate-500 text-xs font-mono">{c.channelId}</p>
-                                                    {c._count && c._count.mappings > 0 && (
-                                                        <span className="text-xs text-indigo-400">
-                                                            {c._count.mappings} mapping{c._count.mappings !== 1 ? 's' : ''}
-                                                        </span>
-                                                    )}
+                                <div className="space-y-6">
+                                    {/* Partner Channels */}
+                                    {partnerChannels.length > 0 && (
+                                        <div>
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h3 className="text-md font-bold text-slate-200 flex items-center gap-2">
+                                                    <span>🤝</span> Partner Channels
+                                                </h3>
+                                                <div className="flex items-center gap-3">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search channels..."
+                                                        value={search}
+                                                        onChange={(e) => setSearch(e.target.value)}
+                                                        className="px-3 py-1.5 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm w-48"
+                                                    />
+                                                    <button
+                                                        onClick={handleSync}
+                                                        disabled={syncing}
+                                                        className={`px-4 py-1.5 rounded-lg font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${
+                                                            syncing
+                                                                ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
+                                                                : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
+                                                        }`}
+                                                        title="Sync all channels from Slack"
+                                                    >
+                                                        {syncing ? (
+                                                            <>
+                                                                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                </svg>
+                                                                <span className="text-sm">Syncing...</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <polyline points="23 4 23 10 17 10"></polyline>
+                                                                    <polyline points="1 20 1 14 7 14"></polyline>
+                                                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                                                </svg>
+                                                                <span className="text-sm">Sync</span>
+                                                            </>
+                                                        )}
+                                                    </button>
                                                 </div>
                                             </div>
-                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-3 flex-shrink-0">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleEdit(c)}
-                                                    className="text-blue-400 hover:text-blue-600 hover:bg-blue-900/20 p-1.5 rounded transition-colors"
-                                                    title="Edit Channel"
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => handleDeleteClick(e, c.id)}
-                                                    className="text-red-400 hover:text-red-600 hover:bg-red-900/20 p-1.5 rounded transition-colors"
-                                                    title="Delete Channel"
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
-                                                </button>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                                                {partnerChannels.map(renderChannelCard)}
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    )}
+                                    
+                                    {/* Internal Channels */}
+                                    {internalChannels.length > 0 && (
+                                        <div>
+                                            <h3 className="text-md font-bold text-slate-200 flex items-center gap-2 mb-3">
+                                                <span>🏢</span> Internal Channels
+                                            </h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                                                {internalChannels.map(renderChannelCard)}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )
                         })()}

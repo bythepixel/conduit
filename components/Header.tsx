@@ -13,11 +13,31 @@ export default function Header({ action }: HeaderProps) {
     const router = useRouter()
     const [menuOpen, setMenuOpen] = useState(false)
     const [navOpen, setNavOpen] = useState(false)
+    const [slackyHubOpen, setSlackyHubOpen] = useState(false)
+    const [fireSpotOpen, setFireSpotOpen] = useState(false)
+    const [mobileSlackyHubOpen, setMobileSlackyHubOpen] = useState(false)
+    const [mobileFireSpotOpen, setMobileFireSpotOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
     const navRef = useRef<HTMLDivElement>(null)
     const hamburgerRef = useRef<HTMLButtonElement>(null)
+    const slackyHubRef = useRef<HTMLDivElement>(null)
+    const fireSpotRef = useRef<HTMLDivElement>(null)
 
     const isActive = (path: string) => router.pathname === path
+
+    // Check if any SlackyHub child is active
+    const isSlackyHubActive = () => {
+        return isActive('/') || 
+               isActive('/admin/prompts') || 
+               isActive('/admin/slack-channels') || 
+               isActive('/admin/hubspot-companies') || 
+               isActive('/admin/cron-logs')
+    }
+
+    // Check if FireSpot child is active
+    const isFireSpotActive = () => {
+        return isActive('/admin/meeting-notes') || isActive('/admin/hubspot-companies')
+    }
 
     // Close menus when clicking outside
     useEffect(() => {
@@ -35,16 +55,22 @@ export default function Header({ action }: HeaderProps) {
             if (navRef.current && !navRef.current.contains(target)) {
                 setNavOpen(false)
             }
+            if (slackyHubRef.current && !slackyHubRef.current.contains(target)) {
+                setSlackyHubOpen(false)
+            }
+            if (fireSpotRef.current && !fireSpotRef.current.contains(target)) {
+                setFireSpotOpen(false)
+            }
         }
 
-        if (menuOpen || navOpen) {
+        if (menuOpen || navOpen || slackyHubOpen || fireSpotOpen) {
             document.addEventListener('mousedown', handleClickOutside)
         }
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside)
         }
-    }, [menuOpen, navOpen])
+    }, [menuOpen, navOpen, slackyHubOpen, fireSpotOpen])
 
     // Close mobile nav when route changes
     useEffect(() => {
@@ -60,7 +86,7 @@ export default function Header({ action }: HeaderProps) {
                         <Link href="/">
                             <a className="block group">
                                 <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 bg-clip-text text-transparent group-hover:opacity-80 transition-opacity">
-                                    Slacky Hub
+                                    Conduit
                                 </h1>
                             </a>
                         </Link>
@@ -68,52 +94,140 @@ export default function Header({ action }: HeaderProps) {
 
                     {/* Desktop Navigation */}
                     <nav className="hidden lg:flex items-center gap-1 bg-slate-700/50 p-1 rounded-xl flex-shrink-0">
-                        <Link href="/">
-                            <a className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${isActive('/')
-                                ? 'bg-slate-600 text-indigo-400 shadow-sm'
-                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-600/50'
-                                }`}>
-                                Mappings
-                            </a>
-                        </Link>
-                        <Link href="/admin/prompts">
-                            <a className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${isActive('/admin/prompts')
-                                ? 'bg-slate-600 text-indigo-400 shadow-sm'
-                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-600/50'
-                                }`}>
-                                Prompts
-                            </a>
-                        </Link>
-                        <Link href="/admin/slack-channels">
-                            <a className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${isActive('/admin/slack-channels')
-                                ? 'bg-slate-600 text-indigo-400 shadow-sm'
-                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-600/50'
-                                }`}>
-                                Channels
-                            </a>
-                        </Link>
-                        <Link href="/admin/hubspot-companies">
-                            <a className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${isActive('/admin/hubspot-companies')
-                                ? 'bg-slate-600 text-indigo-400 shadow-sm'
-                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-600/50'
-                                }`}>
-                                Companies
-                            </a>
-                        </Link>
+                        {/* SlackyHub Dropdown */}
+                        <div className="relative" ref={slackyHubRef}>
+                            <button
+                                onClick={() => setSlackyHubOpen(!slackyHubOpen)}
+                                className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-1 ${
+                                    isSlackyHubActive()
+                                        ? 'bg-slate-600 text-indigo-400 shadow-sm'
+                                        : 'text-slate-300 hover:text-slate-100 hover:bg-slate-600/50'
+                                }`}
+                            >
+                                SlackyHub
+                                <svg 
+                                    xmlns="http://www.w3.org/2000/svg" 
+                                    width="14" 
+                                    height="14" 
+                                    viewBox="0 0 24 24" 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    strokeWidth="2" 
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round"
+                                    className={`transition-transform ${slackyHubOpen ? 'rotate-180' : ''}`}
+                                >
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </button>
+                            {slackyHubOpen && (
+                                <div className="absolute top-full left-0 mt-1 w-48 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden z-50">
+                                    <Link href="/">
+                                        <a className={`block px-4 py-2 text-sm transition-colors ${
+                                            isActive('/')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                        }`}>
+                                            Mappings
+                                        </a>
+                                    </Link>
+                                    <Link href="/admin/prompts">
+                                        <a className={`block px-4 py-2 text-sm transition-colors ${
+                                            isActive('/admin/prompts')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                        }`}>
+                                            Prompts
+                                        </a>
+                                    </Link>
+                                    <Link href="/admin/slack-channels">
+                                        <a className={`block px-4 py-2 text-sm transition-colors ${
+                                            isActive('/admin/slack-channels')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                        }`}>
+                                            Channels
+                                        </a>
+                                    </Link>
+                                    <Link href="/admin/hubspot-companies">
+                                        <a className={`block px-4 py-2 text-sm transition-colors ${
+                                            isActive('/admin/hubspot-companies')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                        }`}>
+                                            Companies
+                                        </a>
+                                    </Link>
+                                    <Link href="/admin/cron-logs">
+                                        <a className={`block px-4 py-2 text-sm transition-colors ${
+                                            isActive('/admin/cron-logs')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                        }`}>
+                                            Cron Logs
+                                        </a>
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* FireSpot Dropdown */}
+                        <div className="relative" ref={fireSpotRef}>
+                            <button
+                                onClick={() => setFireSpotOpen(!fireSpotOpen)}
+                                className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-1 ${
+                                    isFireSpotActive()
+                                        ? 'bg-slate-600 text-indigo-400 shadow-sm'
+                                        : 'text-slate-300 hover:text-slate-100 hover:bg-slate-600/50'
+                                }`}
+                            >
+                                FireSpot
+                                <svg 
+                                    xmlns="http://www.w3.org/2000/svg" 
+                                    width="14" 
+                                    height="14" 
+                                    viewBox="0 0 24 24" 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    strokeWidth="2" 
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round"
+                                    className={`transition-transform ${fireSpotOpen ? 'rotate-180' : ''}`}
+                                >
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </button>
+                            {fireSpotOpen && (
+                                <div className="absolute top-full left-0 mt-1 w-48 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden z-50">
+                                    <Link href="/admin/meeting-notes">
+                                        <a className={`block px-4 py-2 text-sm transition-colors ${
+                                            isActive('/admin/meeting-notes')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                        }`}>
+                                            Meeting Notes
+                                        </a>
+                                    </Link>
+                                    <Link href="/admin/hubspot-companies">
+                                        <a className={`block px-4 py-2 text-sm transition-colors ${
+                                            isActive('/admin/hubspot-companies')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                        }`}>
+                                            Companies
+                                        </a>
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Users - No dropdown */}
                         <Link href="/admin/users">
                             <a className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${isActive('/admin/users')
                                 ? 'bg-slate-600 text-indigo-400 shadow-sm'
                                 : 'text-slate-300 hover:text-slate-100 hover:bg-slate-600/50'
                                 }`}>
                                 Users
-                            </a>
-                        </Link>
-                        <Link href="/admin/cron-logs">
-                            <a className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${isActive('/admin/cron-logs')
-                                ? 'bg-slate-600 text-indigo-400 shadow-sm'
-                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-600/50'
-                                }`}>
-                                Cron Logs
                             </a>
                         </Link>
                     </nav>
@@ -188,52 +302,140 @@ export default function Header({ action }: HeaderProps) {
                 {navOpen && (
                     <div ref={navRef} className="lg:hidden border-t border-slate-700 py-4">
                         <nav className="flex flex-col space-y-1">
-                            <Link href="/">
-                                <a className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${isActive('/')
-                                    ? 'bg-slate-700 text-indigo-400'
-                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                    }`}>
-                                    Mappings
-                                </a>
-                            </Link>
-                            <Link href="/admin/prompts">
-                                <a className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${isActive('/admin/prompts')
-                                    ? 'bg-slate-700 text-indigo-400'
-                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                    }`}>
-                                    Prompts
-                                </a>
-                            </Link>
-                            <Link href="/admin/slack-channels">
-                                <a className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${isActive('/admin/slack-channels')
-                                    ? 'bg-slate-700 text-indigo-400'
-                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                    }`}>
-                                    Channels
-                                </a>
-                            </Link>
-                            <Link href="/admin/hubspot-companies">
-                                <a className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${isActive('/admin/hubspot-companies')
-                                    ? 'bg-slate-700 text-indigo-400'
-                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                    }`}>
-                                    Companies
-                                </a>
-                            </Link>
+                            {/* SlackyHub Dropdown - Mobile */}
+                            <div>
+                                <button
+                                    onClick={() => setMobileSlackyHubOpen(!mobileSlackyHubOpen)}
+                                    className={`w-full px-4 py-3 rounded-lg text-sm font-semibold transition-all flex items-center justify-between ${
+                                        isSlackyHubActive()
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                    }`}
+                                >
+                                    SlackyHub
+                                    <svg 
+                                        xmlns="http://www.w3.org/2000/svg" 
+                                        width="16" 
+                                        height="16" 
+                                        viewBox="0 0 24 24" 
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        strokeWidth="2" 
+                                        strokeLinecap="round" 
+                                        strokeLinejoin="round"
+                                        className={`transition-transform ${mobileSlackyHubOpen ? 'rotate-180' : ''}`}
+                                    >
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </button>
+                                {mobileSlackyHubOpen && (
+                                    <div className="pl-4 mt-1 space-y-1">
+                                        <Link href="/">
+                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                                isActive('/')
+                                                    ? 'bg-slate-700 text-indigo-400'
+                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                            }`}>
+                                                Slack Mappings
+                                            </a>
+                                        </Link>
+                                        <Link href="/admin/prompts">
+                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                                isActive('/admin/prompts')
+                                                    ? 'bg-slate-700 text-indigo-400'
+                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                            }`}>
+                                                Prompts
+                                            </a>
+                                        </Link>
+                                        <Link href="/admin/slack-channels">
+                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                                isActive('/admin/slack-channels')
+                                                    ? 'bg-slate-700 text-indigo-400'
+                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                            }`}>
+                                                Channels
+                                            </a>
+                                        </Link>
+                                        <Link href="/admin/hubspot-companies">
+                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                                isActive('/admin/hubspot-companies')
+                                                    ? 'bg-slate-700 text-indigo-400'
+                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                            }`}>
+                                                Companies
+                                            </a>
+                                        </Link>
+                                        <Link href="/admin/cron-logs">
+                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                                isActive('/admin/cron-logs')
+                                                    ? 'bg-slate-700 text-indigo-400'
+                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                            }`}>
+                                                Cron Logs
+                                            </a>
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* FireSpot Dropdown - Mobile */}
+                            <div>
+                                <button
+                                    onClick={() => setMobileFireSpotOpen(!mobileFireSpotOpen)}
+                                    className={`w-full px-4 py-3 rounded-lg text-sm font-semibold transition-all flex items-center justify-between ${
+                                        isFireSpotActive()
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                    }`}
+                                >
+                                    FireSpot
+                                    <svg 
+                                        xmlns="http://www.w3.org/2000/svg" 
+                                        width="16" 
+                                        height="16" 
+                                        viewBox="0 0 24 24" 
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        strokeWidth="2" 
+                                        strokeLinecap="round" 
+                                        strokeLinejoin="round"
+                                        className={`transition-transform ${mobileFireSpotOpen ? 'rotate-180' : ''}`}
+                                    >
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </button>
+                                {mobileFireSpotOpen && (
+                                    <div className="pl-4 mt-1 space-y-1">
+                                        <Link href="/admin/meeting-notes">
+                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                                isActive('/admin/meeting-notes')
+                                                    ? 'bg-slate-700 text-indigo-400'
+                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                            }`}>
+                                                Meeting Notes
+                                            </a>
+                                        </Link>
+                                        <Link href="/admin/hubspot-companies">
+                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                                isActive('/admin/hubspot-companies')
+                                                    ? 'bg-slate-700 text-indigo-400'
+                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                            }`}>
+                                                Companies
+                                            </a>
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Users - No dropdown */}
                             <Link href="/admin/users">
                                 <a className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${isActive('/admin/users')
                                     ? 'bg-slate-700 text-indigo-400'
                                     : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
                                     }`}>
                                     Users
-                                </a>
-                            </Link>
-                            <Link href="/admin/cron-logs">
-                                <a className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${isActive('/admin/cron-logs')
-                                    ? 'bg-slate-700 text-indigo-400'
-                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                    }`}>
-                                    Cron Logs
                                 </a>
                             </Link>
                             {action && (

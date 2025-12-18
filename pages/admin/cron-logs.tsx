@@ -156,7 +156,7 @@ export default function CronLogs() {
     return (
         <div className="min-h-screen bg-slate-900">
             <Head>
-                <title>Cron Logs - Slacky Hub</title>
+                <title>Cron Logs - Conduit</title>
             </Head>
 
             <Header />

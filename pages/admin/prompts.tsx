@@ -136,7 +136,7 @@ export default function Prompts() {
     return (
         <div className="min-h-screen bg-slate-900 font-sans">
             <Head>
-                <title>Prompt Management - Slacky Hub</title>
+                <title>Prompt Management - Conduit</title>
             </Head>
 
             <Header />
