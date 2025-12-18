@@ -39,3 +39,4 @@ export function handleError(error: any, res: NextApiResponse): void {
     res.status(500).json({ error: error.message || ERROR_MESSAGES.INTERNAL_ERROR })
 }
 
+

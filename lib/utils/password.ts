@@ -26,3 +26,4 @@ export async function comparePassword(
     return bcrypt.compare(plainPassword, hashedPassword)
 }
 
+

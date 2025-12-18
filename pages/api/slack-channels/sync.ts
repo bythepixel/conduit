@@ -17,52 +17,76 @@ export default async function handler(
     if (!validateMethod(req, res, ['POST'])) return
 
     try {
-        // Fetch all Slack channels
-        let slackChannelsResponse
-        try {
-            slackChannelsResponse = await slack.conversations.list({
-                types: 'public_channel,private_channel',
-                exclude_archived: true
-            })
-        } catch (slackError: any) {
-            const errorCode = slackError.data?.error || slackError.code
-            const errorMsg = slackError.data?.error || slackError.message || 'Unknown error'
-            
-            // Handle missing scope error with detailed message
-            if (errorCode === 'missing_scope' || errorMsg === 'missing_scope') {
-                const neededScopes = Array.isArray(slackError.data?.needed) 
-                    ? slackError.data.needed 
-                    : (slackError.data?.needed ? [slackError.data.needed] : [])
-                const providedScopes = Array.isArray(slackError.data?.provided) 
-                    ? slackError.data.provided 
-                    : (slackError.data?.provided ? [slackError.data.provided] : [])
-                
-                const defaultNeededScopes = ['channels:read', 'groups:read']
-                const scopeMessage = neededScopes.length > 0 
-                    ? `Missing scopes: ${neededScopes.join(', ')}. Please add these scopes to your Slack app's OAuth & Permissions settings and reinstall the app.`
-                    : `Missing required OAuth scopes. Please add "${defaultNeededScopes.join('" and "')}" scopes to your Slack app's OAuth & Permissions settings and reinstall the app.`
-                
-                console.error('[Slack API] Missing scope error:', {
-                    needed: neededScopes.length > 0 ? neededScopes : defaultNeededScopes,
-                    provided: providedScopes,
-                    error: slackError.data
+        // Fetch all Slack channels with pagination
+        const allSlackChannels: any[] = []
+        let cursor: string | undefined = undefined
+        let hasMore = true
+
+        while (hasMore) {
+            let slackChannelsResponse
+            try {
+                slackChannelsResponse = await slack.conversations.list({
+                    types: 'public_channel,private_channel',
+                    exclude_archived: true,
+                    ...(cursor && { cursor })
                 })
+            } catch (slackError: any) {
+                const errorCode = slackError.data?.error || slackError.code
+                const errorMsg = slackError.data?.error || slackError.message || 'Unknown error'
                 
-                return res.status(400).json({ 
-                    error: scopeMessage,
-                    details: {
+                // Handle missing scope error with detailed message
+                if (errorCode === 'missing_scope' || errorMsg === 'missing_scope') {
+                    const neededScopes = Array.isArray(slackError.data?.needed) 
+                        ? slackError.data.needed 
+                        : (slackError.data?.needed ? [slackError.data.needed] : [])
+                    const providedScopes = Array.isArray(slackError.data?.provided) 
+                        ? slackError.data.provided 
+                        : (slackError.data?.provided ? [slackError.data.provided] : [])
+                    
+                    const defaultNeededScopes = ['channels:read', 'groups:read']
+                    const scopeMessage = neededScopes.length > 0 
+                        ? `Missing scopes: ${neededScopes.join(', ')}. Please add these scopes to your Slack app's OAuth & Permissions settings and reinstall the app.`
+                        : `Missing required OAuth scopes. Please add "${defaultNeededScopes.join('" and "')}" scopes to your Slack app's OAuth & Permissions settings and reinstall the app.`
+                    
+                    console.error('[Slack API] Missing scope error:', {
                         needed: neededScopes.length > 0 ? neededScopes : defaultNeededScopes,
                         provided: providedScopes,
-                        instructions: 'Go to https://api.slack.com/apps → Your App → OAuth & Permissions → Add Bot Token Scopes → Reinstall App'
-                    }
-                })
+                        error: slackError.data
+                    })
+                    
+                    return res.status(400).json({ 
+                        error: scopeMessage,
+                        details: {
+                            needed: neededScopes.length > 0 ? neededScopes : defaultNeededScopes,
+                            provided: providedScopes,
+                            instructions: 'Go to https://api.slack.com/apps → Your App → OAuth & Permissions → Add Bot Token Scopes → Reinstall App'
+                        }
+                    })
+                }
+                
+                // If it's the first page, return error. Otherwise, log and continue with what we have
+                if (!cursor) {
+                    throw slackError
+                } else {
+                    // Log error but continue with partial results
+                    console.error('[Slack API] Error fetching additional pages:', {
+                        error: slackError.data?.error || slackError.message,
+                        cursor
+                    })
+                    hasMore = false
+                    break
+                }
             }
             
-            // Re-throw other errors
-            throw slackError
+            const channels = slackChannelsResponse.channels || []
+            allSlackChannels.push(...channels)
+            
+            // Check if there are more pages
+            cursor = slackChannelsResponse.response_metadata?.next_cursor
+            hasMore = !!cursor && cursor.length > 0
         }
         
-        const slackChannels = slackChannelsResponse.channels || []
+        const slackChannels = allSlackChannels
 
         const results = {
             created: 0,
