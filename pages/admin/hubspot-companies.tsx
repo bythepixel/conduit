@@ -26,6 +26,7 @@ export default function HubspotCompanies() {
     const [editingId, setEditingId] = useState<number | null>(null)
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; companyId: number | null }>({ show: false, companyId: null })
     const [syncing, setSyncing] = useState(false)
+    const [generating, setGenerating] = useState(false)
     const [search, setSearch] = useState('')
     const [formOpen, setFormOpen] = useState(false)
 
@@ -181,6 +182,41 @@ export default function HubspotCompanies() {
             alert('An error occurred: ' + (error.message || 'Unknown error'))
         } finally {
             setSyncing(false)
+        }
+    }
+
+    const handleGenerateAbbreviations = async () => {
+        if (!confirm('This will generate abbreviations for all companies that don\'t have one. Continue?')) {
+            return
+        }
+        
+        setGenerating(true)
+        try {
+            const res = await fetch('/api/hubspot-companies/generate-abbreviations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            })
+            const data = await res.json()
+            if (res.ok) {
+                const errorCount = data.results.errors?.length || 0
+                let message = `Abbreviation generation completed!\nUpdated: ${data.results.updated}\nSkipped: ${data.results.skipped}`
+                if (errorCount > 0) {
+                    message += `\n\nErrors: ${errorCount}`
+                    if (errorCount <= 10) {
+                        message += '\n\n' + data.results.errors.join('\n')
+                    } else {
+                        message += `\n\nFirst 10 errors:\n${data.results.errors.slice(0, 10).join('\n')}\n\n... and ${errorCount - 10} more`
+                    }
+                }
+                alert(message)
+                await fetchCompanies()
+            } else {
+                alert('Failed to generate abbreviations: ' + (data.error || 'Unknown error'))
+            }
+        } catch (error: any) {
+            alert('An error occurred: ' + (error.message || 'Unknown error'))
+        } finally {
+            setGenerating(false)
         }
     }
 
@@ -395,6 +431,33 @@ export default function HubspotCompanies() {
                                                                     <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2"/>
                                                                 </svg>
                                                                 <span className="text-sm">Sync</span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                    <button
+                                                        onClick={handleGenerateAbbreviations}
+                                                        disabled={generating}
+                                                        className={`px-4 py-1.5 rounded-lg font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${
+                                                            generating
+                                                                ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
+                                                                : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+                                                        }`}
+                                                        title="Generate abbreviations for companies without one"
+                                                    >
+                                                        {generating ? (
+                                                            <>
+                                                                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                </svg>
+                                                                <span className="text-sm">Generating...</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                                                                </svg>
+                                                                <span className="text-sm">Generate Abbrevs</span>
                                                             </>
                                                         )}
                                                     </button>
