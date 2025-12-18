@@ -26,7 +26,7 @@ describe('/api/hubspot-companies/[id]', () => {
 
   describe('DELETE', () => {
     it('should delete a company when not used in mappings', async () => {
-      mockPrisma.mapping.count.mockResolvedValue(0)
+      mockPrisma.slackMapping.count.mockResolvedValue(0)
       mockPrisma.hubspotCompany.delete.mockResolvedValue({} as any)
 
       const req = createMockRequest('DELETE', {}, { id: '1' })
@@ -34,7 +34,7 @@ describe('/api/hubspot-companies/[id]', () => {
 
       await handler(req as any, res)
 
-      expect(mockPrisma.mapping.count).toHaveBeenCalledWith({
+      expect(mockPrisma.slackMapping.count).toHaveBeenCalledWith({
         where: { hubspotCompanyId: 1 },
       })
       expect(mockPrisma.hubspotCompany.delete).toHaveBeenCalledWith({
@@ -45,7 +45,7 @@ describe('/api/hubspot-companies/[id]', () => {
     })
 
     it('should prevent deletion when company is used in mappings', async () => {
-      mockPrisma.mapping.count.mockResolvedValue(2)
+      mockPrisma.slackMapping.count.mockResolvedValue(2)
 
       const req = createMockRequest('DELETE', {}, { id: '1' })
       const res = createMockResponse()
@@ -60,7 +60,7 @@ describe('/api/hubspot-companies/[id]', () => {
     })
 
     it('should handle P2025 error (not found)', async () => {
-      mockPrisma.mapping.count.mockResolvedValue(0)
+      mockPrisma.slackMapping.count.mockResolvedValue(0)
 
       const error = {
         code: 'P2025',
@@ -81,7 +81,7 @@ describe('/api/hubspot-companies/[id]', () => {
     })
 
     it('should handle general deletion errors', async () => {
-      mockPrisma.mapping.count.mockResolvedValue(0)
+      mockPrisma.slackMapping.count.mockResolvedValue(0)
 
       const error = {
         message: 'Deletion failed',

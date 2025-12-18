@@ -86,6 +86,7 @@ describe('/api/slack-channels', () => {
         data: {
           channelId: 'C123',
           name: 'New Channel',
+          isClient: false,
         },
       })
       expect(res.status).toHaveBeenCalledWith(201)

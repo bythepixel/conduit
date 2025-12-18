@@ -55,6 +55,8 @@ describe('/api/hubspot-companies/sync', () => {
       mockHubSpotClient.crm.companies.basicApi.getPage.mockResolvedValue(mockResponse as any)
       mockPrisma.hubspotCompany.findUnique.mockResolvedValue(null)
       mockPrisma.hubspotCompany.create.mockResolvedValue({ id: 1 } as any)
+      mockPrisma.hubspotCompany.findMany.mockResolvedValue([])
+      mockPrisma.slackMapping.count.mockResolvedValue(0)
 
       const req = createMockRequest('POST')
       const res = createMockResponse()
@@ -72,6 +74,7 @@ describe('/api/hubspot-companies/sync', () => {
         results: {
           created: 2,
           updated: 0,
+          deleted: 0,
           errors: [],
         },
       })
@@ -101,6 +104,8 @@ describe('/api/hubspot-companies/sync', () => {
         .mockResolvedValueOnce(secondPage as any)
       mockPrisma.hubspotCompany.findUnique.mockResolvedValue(null)
       mockPrisma.hubspotCompany.create.mockResolvedValue({ id: 1 } as any)
+      mockPrisma.hubspotCompany.findMany.mockResolvedValue([])
+      mockPrisma.slackMapping.count.mockResolvedValue(0)
 
       const req = createMockRequest('POST')
       const res = createMockResponse()
@@ -125,6 +130,7 @@ describe('/api/hubspot-companies/sync', () => {
         results: {
           created: 2,
           updated: 0,
+          deleted: 0,
           errors: [],
         },
       })
@@ -147,6 +153,8 @@ describe('/api/hubspot-companies/sync', () => {
       mockHubSpotClient.crm.companies.basicApi.getPage.mockResolvedValue(mockResponse as any)
       mockPrisma.hubspotCompany.findUnique.mockResolvedValue(existingCompany as any)
       mockPrisma.hubspotCompany.update.mockResolvedValue({ id: 1 } as any)
+      mockPrisma.hubspotCompany.findMany.mockResolvedValue([])
+      mockPrisma.slackMapping.count.mockResolvedValue(0)
 
       const req = createMockRequest('POST')
       const res = createMockResponse()
@@ -162,6 +170,7 @@ describe('/api/hubspot-companies/sync', () => {
         results: {
           created: 0,
           updated: 1,
+          deleted: 0,
           errors: [],
         },
       })
@@ -183,6 +192,8 @@ describe('/api/hubspot-companies/sync', () => {
 
       mockHubSpotClient.crm.companies.basicApi.getPage.mockResolvedValue(mockResponse as any)
       mockPrisma.hubspotCompany.findUnique.mockResolvedValue(existingCompany as any)
+      mockPrisma.hubspotCompany.findMany.mockResolvedValue([])
+      mockPrisma.slackMapping.count.mockResolvedValue(0)
 
       const req = createMockRequest('POST')
       const res = createMockResponse()
@@ -195,6 +206,7 @@ describe('/api/hubspot-companies/sync', () => {
         results: {
           created: 0,
           updated: 0,
+          deleted: 0,
           errors: [],
         },
       })
@@ -211,6 +223,8 @@ describe('/api/hubspot-companies/sync', () => {
       mockHubSpotClient.crm.companies.basicApi.getPage.mockResolvedValue(mockResponse as any)
       mockPrisma.hubspotCompany.findUnique.mockResolvedValue(null)
       mockPrisma.hubspotCompany.create.mockResolvedValue({ id: 1 } as any)
+      mockPrisma.hubspotCompany.findMany.mockResolvedValue([])
+      mockPrisma.slackMapping.count.mockResolvedValue(0)
 
       const req = createMockRequest('POST')
       const res = createMockResponse()
@@ -238,6 +252,8 @@ describe('/api/hubspot-companies/sync', () => {
       mockHubSpotClient.crm.companies.basicApi.getPage.mockResolvedValue(mockResponse as any)
       mockPrisma.hubspotCompany.findUnique.mockResolvedValue(null)
       mockPrisma.hubspotCompany.create.mockResolvedValue({ id: 1 } as any)
+      mockPrisma.hubspotCompany.findMany.mockResolvedValue([])
+      mockPrisma.slackMapping.count.mockResolvedValue(0)
 
       const req = createMockRequest('POST')
       const res = createMockResponse()
@@ -249,6 +265,7 @@ describe('/api/hubspot-companies/sync', () => {
         results: {
           created: 1,
           updated: 0,
+          deleted: 0,
           errors: ['Skipped company: No company ID'],
         },
       })
@@ -279,6 +296,7 @@ describe('/api/hubspot-companies/sync', () => {
         results: {
           created: 0,
           updated: 0,
+          deleted: 0,
           errors: ['Skipped Company 1: Duplicate entry (companyId already exists)'],
         },
       })
@@ -380,6 +398,8 @@ describe('/api/hubspot-companies/sync', () => {
         .mockRejectedValueOnce(hubspotError)
       mockPrisma.hubspotCompany.findUnique.mockResolvedValue(null)
       mockPrisma.hubspotCompany.create.mockResolvedValue({ id: 1 } as any)
+      mockPrisma.hubspotCompany.findMany.mockResolvedValue([])
+      mockPrisma.slackMapping.count.mockResolvedValue(0)
 
       const req = createMockRequest('POST')
       const res = createMockResponse()
@@ -391,6 +411,7 @@ describe('/api/hubspot-companies/sync', () => {
         results: {
           created: 1,
           updated: 0,
+          deleted: 0,
           errors: ['Error fetching additional pages: Internal server error'],
         },
       })
@@ -406,6 +427,8 @@ describe('/api/hubspot-companies/sync', () => {
 
       mockHubSpotClient.crm.companies.basicApi.getPage.mockResolvedValue(mockResponse as any)
       mockPrisma.hubspotCompany.findUnique.mockRejectedValue(new Error('Database error'))
+      mockPrisma.hubspotCompany.findMany.mockResolvedValue([])
+      mockPrisma.slackMapping.count.mockResolvedValue(0)
 
       const req = createMockRequest('POST')
       const res = createMockResponse()
@@ -417,6 +440,7 @@ describe('/api/hubspot-companies/sync', () => {
         results: {
           created: 0,
           updated: 0,
+          deleted: 0,
           errors: ['Error processing Company 1: Database error'],
         },
       })
@@ -429,6 +453,8 @@ describe('/api/hubspot-companies/sync', () => {
       }
 
       mockHubSpotClient.crm.companies.basicApi.getPage.mockResolvedValue(mockResponse as any)
+      mockPrisma.hubspotCompany.findMany.mockResolvedValue([])
+      mockPrisma.slackMapping.count.mockResolvedValue(0)
 
       const req = createMockRequest('POST')
       const res = createMockResponse()
@@ -440,6 +466,7 @@ describe('/api/hubspot-companies/sync', () => {
         results: {
           created: 0,
           updated: 0,
+          deleted: 0,
           errors: [],
         },
       })

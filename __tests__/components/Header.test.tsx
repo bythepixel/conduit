@@ -54,7 +54,7 @@ describe('Header component', () => {
     fireEvent.click(slackyHubButton)
     
     // Now the dropdown items should be visible
-    expect(screen.getByText('Slack Mappings')).toBeInTheDocument()
+    expect(screen.getByText('Mappings')).toBeInTheDocument()
     expect(screen.getByText('Prompts')).toBeInTheDocument()
     expect(screen.getByText('Channels')).toBeInTheDocument()
     expect(screen.getByText('Companies')).toBeInTheDocument()

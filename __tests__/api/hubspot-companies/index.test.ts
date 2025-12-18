@@ -50,7 +50,10 @@ describe('/api/hubspot-companies', () => {
       await handler(req as any, res)
 
       expect(mockPrisma.hubspotCompany.findMany).toHaveBeenCalledWith({
-        orderBy: { createdAt: 'desc' },
+        orderBy: [
+          { name: 'asc' },
+          { companyId: 'asc' }
+        ],
         include: {
           _count: {
             select: { mappings: true },
@@ -86,6 +89,8 @@ describe('/api/hubspot-companies', () => {
         data: {
           companyId: 'company-123',
           name: 'New Company',
+          btpAbbreviation: undefined,
+          activeClient: false,
         },
       })
       expect(res.status).toHaveBeenCalledWith(201)
