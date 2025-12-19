@@ -36,7 +36,7 @@ export default function Header({ action }: HeaderProps) {
 
     // Check if FireSpot child is active
     const isFireSpotActive = () => {
-        return isActive('/admin/meeting-notes') || isActive('/admin/hubspot-companies')
+        return isActive('/admin/meeting-notes') || isActive('/admin/hubspot-companies') || isActive('/admin/fire-hook-logs')
     }
 
     // Close menus when clicking outside
@@ -215,6 +215,15 @@ export default function Header({ action }: HeaderProps) {
                                                 : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
                                         }`}>
                                             Companies
+                                        </a>
+                                    </Link>
+                                    <Link href="/admin/fire-hook-logs">
+                                        <a className={`block px-4 py-2 text-sm transition-colors ${
+                                            isActive('/admin/fire-hook-logs')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                        }`}>
+                                            Fire Hook Logs
                                         </a>
                                     </Link>
                                 </div>
@@ -423,6 +432,15 @@ export default function Header({ action }: HeaderProps) {
                                                     : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
                                             }`}>
                                                 Companies
+                                            </a>
+                                        </Link>
+                                        <Link href="/admin/fire-hook-logs">
+                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                                isActive('/admin/fire-hook-logs')
+                                                    ? 'bg-slate-700 text-indigo-400'
+                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                            }`}>
+                                                Fire Hook Logs
                                             </a>
                                         </Link>
                                     </div>

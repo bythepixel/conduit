@@ -136,3 +136,21 @@ model MeetingNote {
   @@index([meetingId])
   @@index([meetingDate])
 }
+
+model FireHookLog {
+  id                Int       @id @default(autoincrement())
+  date              DateTime  @default(now())
+  meetingId         String?   // Fireflies.ai meeting ID
+  eventType         String    // Type of webhook event (e.g., 'transcript_completed', 'summary_ready')
+  clientReferenceId String?   // Client reference ID from webhook
+  payload           Json?     // Full webhook payload
+  processed         Boolean   @default(false) // Whether the webhook has been processed
+  errorMessage      String?   // Error message if processing failed
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([date])
+  @@index([meetingId])
+  @@index([eventType])
+  @@index([clientReferenceId])
+}
