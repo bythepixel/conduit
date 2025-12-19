@@ -84,8 +84,15 @@ export default function Header({ action }: HeaderProps) {
                     {/* Logo */}
                     <div className="flex-shrink-0">
                         <Link href="/">
-                            <a className="block group">
-                                <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 bg-clip-text text-transparent group-hover:opacity-80 transition-opacity">
+                            <a className="block group flex items-center gap-3">
+                                <div className="flex-shrink-0">
+                                    <img 
+                                        src="/conduit-logo.svg" 
+                                        alt="Conduit Logo" 
+                                        className="w-8 h-8 sm:w-10 sm:h-10 group-hover:opacity-80 transition-opacity"
+                                    />
+                                </div>
+                                <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 via-pink-500 via-blue-500 to-cyan-500 bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient group-hover:opacity-80 transition-opacity">
                                     Conduit
                                 </h1>
                             </a>
