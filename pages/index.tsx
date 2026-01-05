@@ -59,6 +59,14 @@ export default function Home() {
     const [testingIds, setTestingIds] = useState<number[]>([])
     const [channelSearch, setChannelSearch] = useState('')
     const [companySearch, setCompanySearch] = useState('')
+    const [mappingSearch, setMappingSearch] = useState('')
+    const [expandedIds, setExpandedIds] = useState<number[]>([])
+
+    const toggleExpand = (id: number) => {
+        setExpandedIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        )
+    }
 
     useEffect(() => {
         if (status === "unauthenticated") {
@@ -155,7 +163,7 @@ export default function Home() {
                         cadence: form.cadence
                     }),
                 })
-                
+
                 if (!res.ok) {
                     const error = await res.json()
                     alert(error.error || 'Failed to create mapping')
@@ -326,13 +334,13 @@ export default function Home() {
                                                 const channelId = channel.channelId.toLowerCase()
                                                 return channelName.includes(searchLower) || channelId.includes(searchLower)
                                             })
-                                            
+
                                             if (filteredChannels.length === 0) {
                                                 return (
                                                     <p className="text-xs text-slate-500 p-1.5">No channels match "{channelSearch}"</p>
                                                 )
                                             }
-                                            
+
                                             return filteredChannels.map(channel => (
                                                 <label key={channel.id} className="flex items-center gap-1.5 p-1 rounded hover:bg-slate-800 cursor-pointer">
                                                     <input
@@ -373,13 +381,13 @@ export default function Home() {
                                                 const companyId = company.companyId.toLowerCase()
                                                 return companyName.includes(searchLower) || companyId.includes(searchLower)
                                             })
-                                            
+
                                             if (filteredCompanies.length === 0) {
                                                 return (
                                                     <p className="text-xs text-slate-500 p-1.5">No companies match "{companySearch}"</p>
                                                 )
                                             }
-                                            
+
                                             return filteredCompanies.map(company => (
                                                 <label key={company.id} className="flex items-center gap-1.5 p-1 rounded hover:bg-slate-800 cursor-pointer">
                                                     <input
@@ -439,96 +447,140 @@ export default function Home() {
 
                     {/* List */}
                     <div className="space-y-4">
-                        <h2 className="text-xl font-bold text-slate-100 mb-4 flex items-center gap-2">
-                            <span>🔗</span> Slack Mappings
-                        </h2>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                                <span>🔗</span> Slack Mappings
+                            </h2>
+                            <input
+                                type="text"
+                                placeholder="Search mappings..."
+                                value={mappingSearch}
+                                onChange={(e) => setMappingSearch(e.target.value)}
+                                className="px-3 py-1.5 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm w-48"
+                            />
+                        </div>
                         {loading ? (
                             <div className="animate-pulse space-y-4">
                                 {[1, 2, 3].map(i => <div key={i} className="h-24 bg-slate-800 rounded-2xl shadow-sm" />)}
                             </div>
-                        ) : mappings.length === 0 ? (
-                            <div className="text-center py-12 bg-slate-800 rounded-2xl border-2 border-dashed border-slate-600 text-slate-500">
-                                No mappings found. Add one to get started.
-                            </div>
-                        ) : (
-                            mappings.map(m => (
-                                <div key={m.id} className="group bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-700 flex justify-between items-center hover:shadow-md transition-all">
-                                    <div className="space-y-1">
-                                        {m.title && (
-                                            <div className="font-semibold text-base text-slate-200 mb-1">{m.title}</div>
-                                        )}
-                                        <div className="flex items-center gap-3 flex-wrap">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                {m.slackChannels.map((msc, idx) => (
-                                                    <span key={msc.id} className="font-bold text-lg text-slate-100">
-                                                        {msc.slackChannel.name ? (msc.slackChannel.name.startsWith('#') ? msc.slackChannel.name : `#${msc.slackChannel.name}`) : msc.slackChannel.channelId}
-                                                        {idx < m.slackChannels.length - 1 && <span className="text-slate-500 mx-1">+</span>}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                            <span className="text-slate-500">→</span>
-                                            <span className="font-bold text-lg text-slate-100">{m.hubspotCompany.name || m.hubspotCompany.companyId}</span>
-                                        </div>
-                                        <div className="flex items-center gap-4 text-xs text-slate-500 font-mono flex-wrap">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="bg-slate-700 px-2 py-1 rounded">
-                                                    {m.slackChannels.length} Channel{m.slackChannels.length !== 1 ? 's' : ''}
-                                                </span>
-                                                {m.slackChannels.map(msc => (
-                                                    <span key={msc.id} className="bg-slate-700 px-2 py-1 rounded">
-                                                        {msc.slackChannel.channelId}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                            <span className="bg-slate-700 px-2 py-1 rounded">HubSpot: {m.hubspotCompany.companyId}</span>
-                                            <span className={`px-2 py-1 rounded capitalize font-semibold ${
-                                                m.cadence === 'daily' 
-                                                    ? 'bg-indigo-700/50 text-indigo-300' 
-                                                    : m.cadence === 'weekly' 
-                                                    ? 'bg-cyan-700/50 text-cyan-300' 
+                        ) : (() => {
+                            const filteredMappings = mappings.filter(m => {
+                                if (!mappingSearch.trim()) return true
+                                const searchLower = mappingSearch.toLowerCase()
+                                const title = m.title?.toLowerCase() || ''
+                                const companyName = m.hubspotCompany.name?.toLowerCase() || ''
+                                const companyId = m.hubspotCompany.companyId.toLowerCase()
+                                const channelNames = m.slackChannels.map(sc => sc.slackChannel.name?.toLowerCase() || '').join(' ')
+                                const channelIds = m.slackChannels.map(sc => sc.slackChannel.channelId.toLowerCase()).join(' ')
+
+                                return title.includes(searchLower) ||
+                                    companyName.includes(searchLower) ||
+                                    companyId.includes(searchLower) ||
+                                    channelNames.includes(searchLower) ||
+                                    channelIds.includes(searchLower)
+                            })
+
+                            if (filteredMappings.length === 0) {
+                                return (
+                                    <div className="text-center py-12 bg-slate-800 rounded-2xl border-2 border-dashed border-slate-600 text-slate-500">
+                                        No mappings match "{mappingSearch}"
+                                    </div>
+                                )
+                            }
+
+                            return filteredMappings.map(m => (
+                                <div key={m.id} onClick={() => toggleExpand(m.id)} className="group bg-slate-800 rounded-2xl shadow-sm border border-slate-700 hover:shadow-md transition-all cursor-pointer overflow-hidden">
+                                    <div className="p-6 flex justify-between items-start md:items-center">
+                                        <div className="flex items-center gap-3">
+                                            {m.title ? (
+                                                <div className="font-semibold text-base text-slate-200">{m.title}</div>
+                                            ) : (
+                                                <div className="font-semibold text-base text-slate-200 italic opacity-50">Untitled Mapping</div>
+                                            )}
+                                            <span className={`px-2 py-0.5 rounded capitalize font-semibold text-[10px] ${m.cadence === 'daily'
+                                                ? 'bg-indigo-700/50 text-indigo-300'
+                                                : m.cadence === 'weekly'
+                                                    ? 'bg-cyan-700/50 text-cyan-300'
                                                     : 'bg-purple-700/50 text-purple-300'
-                                            }`}>
+                                                }`}>
                                                 {m.cadence || 'daily'}
                                             </span>
+                                            <span className="text-slate-600">
+                                                {expandedIds.includes(m.id) ? (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
+                                                ) : (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                                                )}
+                                            </span>
                                         </div>
-                                        {m.lastSyncedAt && <p className="text-xs text-indigo-500 mt-2">Last synced: {new Date(m.lastSyncedAt).toLocaleString()}</p>}
+                                        <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                                            <button
+                                                onClick={() => handleTest(m.id)}
+                                                disabled={syncing || syncingIds.includes(m.id) || testingIds.includes(m.id)}
+                                                className={`p-2 rounded-lg transition-colors ${syncing || syncingIds.includes(m.id) || testingIds.includes(m.id) ? 'text-slate-500 cursor-not-allowed' : 'text-yellow-500 hover:text-yellow-600 hover:bg-yellow-900/20'}`}
+                                                title="Test (Preview ChatGPT Output)"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={testingIds.includes(m.id) ? 'animate-pulse' : ''}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                                            </button>
+                                            <button
+                                                onClick={() => handleSingleSync(m.id)}
+                                                disabled={syncing || syncingIds.includes(m.id) || testingIds.includes(m.id)}
+                                                className={`p-2 rounded-lg transition-colors ${syncing || syncingIds.includes(m.id) || testingIds.includes(m.id) ? 'text-slate-500 cursor-not-allowed' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-900/20'}`}
+                                                title="Sync Now"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={syncingIds.includes(m.id) ? 'animate-spin' : ''}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 21h5v-5" /></svg>
+                                            </button>
+                                            <button
+                                                onClick={() => handleEdit(m)}
+                                                disabled={syncingIds.includes(m.id) || testingIds.includes(m.id)}
+                                                className="text-blue-400 hover:text-blue-600 hover:bg-blue-900/20 p-2 rounded-lg transition-colors"
+                                                title="Edit Mapping"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(m.id)}
+                                                className="text-red-400 hover:text-red-600 hover:bg-red-900/20 p-2 rounded-lg transition-colors"
+                                                title="Remove Mapping"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                            onClick={() => handleTest(m.id)}
-                                            disabled={syncing || syncingIds.includes(m.id) || testingIds.includes(m.id)}
-                                            className={`p-2 rounded-lg transition-colors ${syncing || syncingIds.includes(m.id) || testingIds.includes(m.id) ? 'text-slate-500 cursor-not-allowed' : 'text-yellow-500 hover:text-yellow-600 hover:bg-yellow-900/20'}`}
-                                            title="Test (Preview ChatGPT Output)"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={testingIds.includes(m.id) ? 'animate-pulse' : ''}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                                        </button>
-                                        <button
-                                            onClick={() => handleSingleSync(m.id)}
-                                            disabled={syncing || syncingIds.includes(m.id) || testingIds.includes(m.id)}
-                                            className={`p-2 rounded-lg transition-colors ${syncing || syncingIds.includes(m.id) || testingIds.includes(m.id) ? 'text-slate-500 cursor-not-allowed' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-900/20'}`}
-                                            title="Sync Now"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={syncingIds.includes(m.id) ? 'animate-spin' : ''}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 21h5v-5" /></svg>
-                                        </button>
-                                        <button
-                                            onClick={() => handleEdit(m)}
-                                            disabled={syncingIds.includes(m.id) || testingIds.includes(m.id)}
-                                            className="text-blue-400 hover:text-blue-600 hover:bg-blue-900/20 p-2 rounded-lg transition-colors"
-                                            title="Edit Mapping"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(m.id)}
-                                            className="text-red-400 hover:text-red-600 hover:bg-red-900/20 p-2 rounded-lg transition-colors"
-                                            title="Remove Mapping"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
-                                        </button>
-                                    </div>
+
+                                    {expandedIds.includes(m.id) && (
+                                        <div className="px-6 pb-6 pt-2 border-t border-slate-700/50 mt-2 space-y-4">
+                                            <div className="flex items-center gap-3 flex-wrap mb-4">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    {m.slackChannels.map((msc, idx) => (
+                                                        <span key={msc.id} className="font-bold text-base text-slate-100">
+                                                            {msc.slackChannel.name ? (msc.slackChannel.name.startsWith('#') ? msc.slackChannel.name : `#${msc.slackChannel.name}`) : msc.slackChannel.channelId}
+                                                            {idx < m.slackChannels.length - 1 && <span className="text-slate-500 mx-1">+</span>}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                                <span className="text-slate-500">→</span>
+                                                <span className="font-bold text-base text-slate-100">{m.hubspotCompany.name || m.hubspotCompany.companyId}</span>
+                                            </div>
+                                            <div className="flex items-center gap-4 text-xs text-slate-500 font-mono flex-wrap">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="bg-slate-700 px-2 py-1 rounded">
+                                                        {m.slackChannels.length} Channel{m.slackChannels.length !== 1 ? 's' : ''}
+                                                    </span>
+                                                    {m.slackChannels.map(msc => (
+                                                        <span key={msc.id} className="bg-slate-700 px-2 py-1 rounded">
+                                                            {msc.slackChannel.channelId}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                                <span className="bg-slate-700 px-2 py-1 rounded">HubSpot: {m.hubspotCompany.companyId}</span>
+                                            </div>
+                                            {m.lastSyncedAt && <p className="text-xs text-indigo-500">Last synced: {new Date(m.lastSyncedAt).toLocaleString()}</p>}
+                                        </div>
+                                    )}
                                 </div>
                             ))
-                        )}
+                        })()}
                     </div>
                 </div>
             </div>
