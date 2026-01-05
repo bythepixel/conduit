@@ -18,8 +18,8 @@ export default async function handler(
     try {
         const apiKey = getEnv('FIREFLIES_API_KEY', '')
         if (!apiKey) {
-            return res.status(400).json({ 
-                error: 'FIREFLIES_API_KEY environment variable is not set' 
+            return res.status(400).json({
+                error: 'FIREFLIES_API_KEY environment variable is not set'
             })
         }
 
@@ -95,7 +95,7 @@ export default async function handler(
 
                 // Extract data from GraphQL response
                 const transcripts = result.data?.transcripts || []
-                
+
                 if (transcripts.length === 0) {
                     hasMore = false
                     break
@@ -114,7 +114,31 @@ export default async function handler(
                         // Extract participants - should be array of strings
                         let participants: string[] = []
                         if (Array.isArray(transcript.participants)) {
-                            participants = transcript.participants.filter((p: any) => typeof p === 'string' && p.trim() !== '')
+                            // Extract participants - expand comma lists and deduplicate
+                            const rawParticipants = transcript.participants.filter((p: any) => typeof p === 'string' && p.trim() !== '')
+                            const individuals = rawParticipants.filter((p: string) => !p.includes(','))
+                            const result = new Set<string>()
+
+                            rawParticipants.forEach((p: string) => {
+                                if (p.includes(',')) {
+                                    const fragments = p.split(',').map((f: string) => f.trim()).filter((f: string) => f !== '')
+
+                                    // Split if any fragment looks like an email or matches a known individual
+                                    const isList = fragments.some((f: string) =>
+                                        f.includes('@') ||
+                                        individuals.some((ind: string) => ind.trim() === f)
+                                    )
+
+                                    if (isList) {
+                                        fragments.forEach((f: string) => result.add(f))
+                                    } else {
+                                        result.add(p)
+                                    }
+                                } else {
+                                    result.add(p)
+                                }
+                            })
+                            participants = Array.from(result)
                         }
 
                         // Parse meeting date
@@ -190,7 +214,7 @@ export default async function handler(
                             }
                         }
                     } catch (error: any) {
-                        const errorMsg = error.code === 'P2002' 
+                        const errorMsg = error.code === 'P2002'
                             ? `Duplicate entry (meetingId already exists)`
                             : error.message || 'Unknown error'
                         results.errors.push(`Error processing ${transcript.title || transcript.id}: ${errorMsg}`)
@@ -204,7 +228,7 @@ export default async function handler(
                 // Otherwise, we might need to use cursor-based pagination
                 // For now, we'll stop if we got fewer than limit
                 hasMore = transcripts.length >= limit
-                
+
                 // If there's a cursor in the response, use it for next page
                 // Otherwise, we'll need to implement date-based pagination
                 // For now, let's fetch a reasonable number and stop
@@ -214,7 +238,7 @@ export default async function handler(
 
             } catch (apiError: any) {
                 const errorMsg = apiError.message || 'Unknown error'
-                
+
                 console.error('[Fireflies API] Error fetching transcripts:', {
                     message: errorMsg,
                     error: apiError
@@ -222,7 +246,7 @@ export default async function handler(
 
                 // If it's the first fetch, return error. Otherwise, log and continue with what we have
                 if (fetchedCount === 0) {
-                    return res.status(500).json({ 
+                    return res.status(500).json({
                         error: `Fireflies API Error: ${errorMsg}`,
                         details: {
                             message: errorMsg,
@@ -243,7 +267,7 @@ export default async function handler(
         })
     } catch (error: any) {
         console.error('Error syncing meeting notes from Fireflies:', error)
-        return res.status(500).json({ 
+        return res.status(500).json({
             error: error.message || 'Failed to sync meeting notes from Fireflies'
         })
     }

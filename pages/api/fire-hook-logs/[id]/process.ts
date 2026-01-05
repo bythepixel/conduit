@@ -20,8 +20,8 @@ export default async function handler(
         const logId = parseInt(id as string, 10)
 
         if (isNaN(logId)) {
-            return res.status(400).json({ 
-                error: 'Invalid log ID' 
+            return res.status(400).json({
+                error: 'Invalid log ID'
             })
         }
 
@@ -31,34 +31,34 @@ export default async function handler(
         })
 
         if (!fireHookLog) {
-            return res.status(404).json({ 
-                error: 'Fire hook log not found' 
+            return res.status(404).json({
+                error: 'Fire hook log not found'
             })
         }
 
         if (fireHookLog.processed) {
-            return res.status(400).json({ 
-                error: 'Log has already been processed' 
+            return res.status(400).json({
+                error: 'Log has already been processed'
             })
         }
 
         if (!fireHookLog.meetingId) {
-            return res.status(400).json({ 
-                error: 'No meeting ID in fire hook log' 
+            return res.status(400).json({
+                error: 'No meeting ID in fire hook log'
             })
         }
 
         const apiKey = getEnv('FIREFLIES_API_KEY', '')
         if (!apiKey) {
-            return res.status(400).json({ 
-                error: 'FIREFLIES_API_KEY environment variable is not set' 
+            return res.status(400).json({
+                error: 'FIREFLIES_API_KEY environment variable is not set'
             })
         }
 
         // Fetch the meeting from Fireflies API
         // Try to fetch by ID first, if that fails, fetch all and filter
         let transcript: any = null
-        
+
         // First, try fetching by ID
         const queryById = `
             query GetTranscript($id: String!) {
@@ -94,7 +94,7 @@ export default async function handler(
 
         if (response.ok) {
             const result = await response.json()
-            
+
             if (result.errors) {
                 console.log('[Process Fire Hook Log] GraphQL errors when fetching by ID:', result.errors)
                 // Continue to try fetching all transcripts
@@ -113,7 +113,7 @@ export default async function handler(
         // If fetching by ID didn't work, fetch all transcripts and filter
         if (!transcript) {
             console.log('[Process Fire Hook Log] Fetching all transcripts to find matching meeting')
-            
+
             const queryAll = `
                 query GetTranscripts($limit: Int) {
                     transcripts(limit: $limit) {
@@ -147,7 +147,7 @@ export default async function handler(
             if (!response.ok) {
                 const errorText = await response.text()
                 console.error(`[Process Fire Hook Log] HTTP Error (${response.status}):`, errorText)
-                
+
                 const errorMessage = `Fireflies API HTTP error: ${response.status} - ${errorText.substring(0, 500)}`
                 await prisma.fireHookLog.update({
                     where: { id: logId },
@@ -156,8 +156,8 @@ export default async function handler(
                         processed: false
                     }
                 })
-                
-                return res.status(500).json({ 
+
+                return res.status(500).json({
                     error: 'Failed to fetch meeting from Fireflies API',
                     details: errorText.substring(0, 500)
                 })
@@ -168,7 +168,7 @@ export default async function handler(
             if (result.errors) {
                 console.error('[Process Fire Hook Log] GraphQL errors:', result.errors)
                 const errorMessage = `Fireflies API GraphQL errors: ${JSON.stringify(result.errors).substring(0, 500)}`
-                
+
                 await prisma.fireHookLog.update({
                     where: { id: logId },
                     data: {
@@ -176,8 +176,8 @@ export default async function handler(
                         processed: false
                     }
                 })
-                
-                return res.status(500).json({ 
+
+                return res.status(500).json({
                     error: 'Failed to fetch meeting from Fireflies API',
                     details: result.errors
                 })
@@ -187,7 +187,7 @@ export default async function handler(
             const transcripts = result.data?.transcripts || []
             console.log(`[Process Fire Hook Log] Fetched ${transcripts.length} transcripts, searching for meeting ID: ${fireHookLog.meetingId}`)
             transcript = transcripts.find((t: any) => t.id === fireHookLog.meetingId)
-            
+
             if (transcript) {
                 console.log(`[Process Fire Hook Log] Found meeting in transcripts list: ${transcript.id}`)
             } else {
@@ -204,16 +204,40 @@ export default async function handler(
                     processed: false
                 }
             })
-            
-            return res.status(404).json({ 
-                error: 'Meeting not found in Fireflies API' 
+
+            return res.status(404).json({
+                error: 'Meeting not found in Fireflies API'
             })
         }
 
         // Extract participants
         let participants: string[] = []
         if (Array.isArray(transcript.participants)) {
-            participants = transcript.participants.filter((p: any) => typeof p === 'string' && p.trim() !== '')
+            // Extract participants - expand comma lists and deduplicate
+            const rawParticipants = transcript.participants.filter((p: any) => typeof p === 'string' && p.trim() !== '')
+            const individuals = rawParticipants.filter((p: string) => !p.includes(','))
+            const result = new Set<string>()
+
+            rawParticipants.forEach((p: string) => {
+                if (p.includes(',')) {
+                    const fragments = p.split(',').map((f: string) => f.trim()).filter((f: string) => f !== '')
+
+                    // Split if any fragment looks like an email or matches a known individual
+                    const isList = fragments.some((f: string) =>
+                        f.includes('@') ||
+                        individuals.some((ind: string) => ind.trim() === f)
+                    )
+
+                    if (isList) {
+                        fragments.forEach((f: string) => result.add(f))
+                    } else {
+                        result.add(p)
+                    }
+                } else {
+                    result.add(p)
+                }
+            })
+            participants = Array.from(result)
         }
 
         // Parse meeting date
@@ -286,7 +310,7 @@ export default async function handler(
             }
         })
 
-        return res.status(200).json({ 
+        return res.status(200).json({
             success: true,
             meetingNote: {
                 id: meetingNote.id,
@@ -296,7 +320,7 @@ export default async function handler(
         })
     } catch (error: any) {
         console.error('[Process Fire Hook Log] Error:', error)
-        
+
         // Try to update the fire hook log with error message
         try {
             const { id } = req.query
@@ -313,8 +337,8 @@ export default async function handler(
         } catch (updateError) {
             console.error('[Process Fire Hook Log] Failed to update error message:', updateError)
         }
-        
-        return res.status(500).json({ 
+
+        return res.status(500).json({
             error: 'Failed to process fire hook log',
             details: error.message
         })
