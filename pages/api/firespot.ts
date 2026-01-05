@@ -3,6 +3,7 @@ import { validateMethod } from '../../lib/utils/methodValidator'
 import { prisma } from '../../lib/prisma'
 import { getEnv } from '../../lib/config/env'
 import crypto from 'crypto'
+import { FirefliesService } from '../../lib/services/firefliesService'
 
 // Disable body parsing to get raw body for HMAC verification
 export const config = {
@@ -90,13 +91,13 @@ export default async function handler(
     try {
         // Read raw body for HMAC verification
         const rawBody = await getRawBody(req)
-        
+
         // Parse body as JSON for processing
         let body: any
         try {
             body = JSON.parse(rawBody.toString('utf8'))
         } catch (e) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 error: 'Invalid JSON in request body',
                 details: 'Could not parse request body as JSON'
             })
@@ -111,7 +112,7 @@ export default async function handler(
 
         // Validate required field
         if (!eventType) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 error: 'eventType is required',
                 received: body
             })
@@ -120,10 +121,10 @@ export default async function handler(
         // Verify HMAC signature
         const webhookSecret = getEnv('FIREFLIES_WEBHOOK_SECRET', '')
         const receivedSignature = req.headers['x-hub-signature'] as string | undefined
-        
+
         // Compute the signature for storage
         const computedSignature = webhookSecret ? computeSignature(rawBody, webhookSecret) : null
-        
+
         // Verify the signature
         const isAuthentic = verifySignature(rawBody, webhookSecret, receivedSignature)
 
@@ -139,7 +140,7 @@ export default async function handler(
         if (!prisma.fireHookLog) {
             console.error('[FireSpot] Prisma client does not have fireHookLog model')
             console.error('[FireSpot] Available models:', Object.keys(prisma).filter(key => !key.startsWith('_')))
-            return res.status(500).json({ 
+            return res.status(500).json({
                 error: 'Database model not available',
                 details: 'FireHookLog model not found in Prisma client. Please restart the dev server after running: npx prisma generate'
             })
@@ -165,7 +166,16 @@ export default async function handler(
             isAuthentic: fireHookLog.isAuthentic
         })
 
-        return res.status(200).json({ 
+        // Automatically process the log if it is authentic
+        if (fireHookLog.isAuthentic && fireHookLog.meetingId) {
+            console.log(`[FireSpot] Triggering automatic processing for log ID: ${fireHookLog.id}`)
+            // We call this without awaiting to return 200 to Fireflies quickly
+            FirefliesService.processFireHookLog(fireHookLog.id).catch(err => {
+                console.error(`[FireSpot] Background processing failed for log ID ${fireHookLog.id}:`, err)
+            })
+        }
+
+        return res.status(200).json({
             status: 'OK',
             logId: fireHookLog.id,
             isAuthentic: fireHookLog.isAuthentic
@@ -178,7 +188,7 @@ export default async function handler(
             meta: error.meta,
             stack: error.stack
         })
-        return res.status(500).json({ 
+        return res.status(500).json({
             error: 'Failed to create fire hook log',
             details: error.message,
             code: error.code
