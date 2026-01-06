@@ -1,35 +1,23 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../lib/prisma'
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "../../../lib/config/auth"
+import { requireAuth } from '../../../lib/middleware/auth'
+import { validateMethod } from '../../../lib/utils/methodValidator'
+import { HUBSPOT_COMPANY_INCLUDE } from '../../../lib/constants/selects'
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
-    const session = await getServerSession(req, res, authOptions)
-    if (!session) {
-        return res.status(401).json({ error: "Unauthorized" })
-    }
+    const session = await requireAuth(req, res)
+    if (!session) return
 
-    if (req.method === 'GET') {
-        const notes = await prisma.meetingNote.findMany({
-            orderBy: { meetingDate: 'desc' },
-            include: {
-                hubspotCompany: {
-                    select: {
-                        id: true,
-                        name: true,
-                        btpAbbreviation: true
-                    }
-                }
-            }
-        })
-        return res.status(200).json(notes)
-    }
+    if (!validateMethod(req, res, ['GET'])) return
 
-    res.setHeader('Allow', ['GET'])
-    return res.status(405).end(`Method ${req.method} Not Allowed`)
+    const notes = await prisma.meetingNote.findMany({
+        orderBy: { meetingDate: 'desc' },
+        include: HUBSPOT_COMPANY_INCLUDE,
+    })
+    return res.status(200).json(notes)
 }
 
 

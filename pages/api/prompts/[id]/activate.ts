@@ -1,21 +1,18 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../../lib/prisma'
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "../../../../lib/config/auth"
+import { requireAuth } from '../../../../lib/middleware/auth'
+import { validateMethod } from '../../../../lib/utils/methodValidator'
+import { handleError } from '../../../../lib/utils/errorHandler'
+import { PRISMA_ERROR_CODES } from '../../../../lib/constants'
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
-    const session = await getServerSession(req, res, authOptions)
-    if (!session) {
-        return res.status(401).json({ error: "Unauthorized" })
-    }
+    const session = await requireAuth(req, res)
+    if (!session) return
 
-    if (req.method !== 'POST') {
-        res.setHeader('Allow', ['POST'])
-        return res.status(405).end(`Method ${req.method} Not Allowed`)
-    }
+    if (!validateMethod(req, res, ['POST'])) return
 
     const { id } = req.query
 
@@ -43,13 +40,10 @@ export default async function handler(
 
         return res.status(200).json(activatedPrompt)
     } catch (e: any) {
-        // Check if it's a Prisma client issue
-        if (e.message?.includes('updateMany') || e.message?.includes('undefined')) {
-            return res.status(500).json({ 
-                error: 'Prisma client not updated. Please restart your dev server after running: npx prisma generate' 
-            })
+        if (e.code === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
+            return res.status(404).json({ error: "Prompt not found" })
         }
-        return res.status(500).json({ error: e.message })
+        handleError(e, res)
     }
 }
 

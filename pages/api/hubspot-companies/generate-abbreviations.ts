@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../lib/prisma'
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "../../../lib/config/auth"
+import { requireAuth } from '../../../lib/middleware/auth'
 
 /**
  * Generates a 2-5 letter abbreviation from a company name
@@ -111,10 +110,8 @@ export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
-    const session = await getServerSession(req, res, authOptions)
-    if (!session) {
-        return res.status(401).json({ error: "Unauthorized" })
-    }
+    const session = await requireAuth(req, res)
+    if (!session) return
 
     if (!validateMethod(req, res, ['POST'])) return
 
@@ -205,15 +202,6 @@ export default async function handler(
             details: error
         })
     }
-}
-
-function validateMethod(req: NextApiRequest, res: NextApiResponse, allowedMethods: string[]): boolean {
-    if (!allowedMethods.includes(req.method || '')) {
-        res.setHeader('Allow', allowedMethods)
-        res.status(405).end(`Method ${req.method} Not Allowed`)
-        return false
-    }
-    return true
 }
 
 

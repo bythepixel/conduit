@@ -1,21 +1,18 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../../lib/prisma'
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "../../../../lib/config/auth"
+import { requireAuth } from '../../../../lib/middleware/auth'
+import { validateMethod } from '../../../../lib/utils/methodValidator'
+import { HUBSPOT_COMPANY_INCLUDE } from '../../../../lib/constants/selects'
+import { handleError } from '../../../../lib/utils/errorHandler'
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
-    const session = await getServerSession(req, res, authOptions)
-    if (!session) {
-        return res.status(401).json({ error: "Unauthorized" })
-    }
+    const session = await requireAuth(req, res)
+    if (!session) return
 
-    if (req.method !== 'POST') {
-        res.setHeader('Allow', ['POST'])
-        return res.status(405).end(`Method ${req.method} Not Allowed`)
-    }
+    if (!validateMethod(req, res, ['POST'])) return
 
     const { id } = req.query
     const { hubspotCompanyId } = req.body
@@ -35,15 +32,7 @@ export default async function handler(
             data: {
                 hubspotCompanyId: hubspotCompanyId || null
             },
-            include: {
-                hubspotCompany: {
-                    select: {
-                        id: true,
-                        name: true,
-                        btpAbbreviation: true
-                    }
-                }
-            }
+            include: HUBSPOT_COMPANY_INCLUDE,
         })
 
         return res.status(200).json({
@@ -52,9 +41,6 @@ export default async function handler(
         })
     } catch (error: any) {
         console.error('[Link Meeting Note] Error:', error)
-        return res.status(500).json({
-            error: 'Internal server error',
-            details: error.message
-        })
+        handleError(error, res)
     }
 }

@@ -1,16 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../lib/prisma'
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "../../../lib/config/auth"
+import { requireAuth } from '../../../lib/middleware/auth'
+import { validateMethod } from '../../../lib/utils/methodValidator'
+import { handleError } from '../../../lib/utils/errorHandler'
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
-    const session = await getServerSession(req, res, authOptions)
-    if (!session) {
-        return res.status(401).json({ error: "Unauthorized" })
-    }
+    const session = await requireAuth(req, res)
+    if (!session) return
+
+    if (!validateMethod(req, res, ['GET', 'POST'])) return
 
     if (req.method === 'GET') {
         const prompts = await prisma.prompt.findMany({
@@ -47,17 +48,8 @@ export default async function handler(
             })
             return res.status(201).json(prompt)
         } catch (e: any) {
-            // Check if it's a Prisma client issue
-            if (e.message?.includes('updateMany') || e.message?.includes('undefined')) {
-                return res.status(500).json({ 
-                    error: 'Prisma client not updated. Please restart your dev server after running: npx prisma generate' 
-                })
-            }
-            return res.status(500).json({ error: e.message })
+            handleError(e, res)
         }
     }
-
-    res.setHeader('Allow', ['GET', 'POST'])
-    return res.status(405).end(`Method ${req.method} Not Allowed`)
 }
 
