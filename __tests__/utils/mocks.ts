@@ -70,6 +70,23 @@ export const mockPrisma = {
     delete: jest.fn(),
     count: jest.fn(),
   },
+  meetingNote: {
+    findMany: jest.fn(),
+    findUnique: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    count: jest.fn(),
+  },
+  fireHookLog: {
+    findMany: jest.fn(),
+    findUnique: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    count: jest.fn(),
+  },
   $transaction: jest.fn(),
 }
 
@@ -94,6 +111,17 @@ export function resetMocks() {
   mockHubSpotClient.crm.objects.notes.basicApi.create.mockReset()
   mockHubSpotClient.crm.companies.basicApi.getPage.mockReset()
   mockOpenAIClient.createChatCompletion.mockReset()
+  
+  // Reset Prisma mocks
+  Object.values(mockPrisma).forEach((model: any) => {
+    if (model && typeof model === 'object') {
+      Object.values(model).forEach((method: any) => {
+        if (typeof method === 'function' && method.mockReset) {
+          method.mockReset()
+        }
+      })
+    }
+  })
 }
 
 // Mock HubSpot Client
