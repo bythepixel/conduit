@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/router"
 import Header from '../../components/Header'
+import ErrorModal from '../../components/ErrorModal'
 
 type HubspotCompany = {
     id: number
@@ -29,6 +30,14 @@ export default function HubspotCompanies() {
     const [generating, setGenerating] = useState(false)
     const [search, setSearch] = useState('')
     const [formOpen, setFormOpen] = useState(false)
+    const [showAbbrevConfirm, setShowAbbrevConfirm] = useState(false)
+    const [showSyncConfirm, setShowSyncConfirm] = useState(false)
+    const [modalConfig, setModalConfig] = useState<{ isOpen: boolean, type: 'error' | 'success' | 'info', title: string, message: string }>({
+        isOpen: false,
+        type: 'info',
+        title: '',
+        message: ''
+    })
 
     useEffect(() => {
         if (status === "unauthenticated") {
@@ -66,7 +75,12 @@ export default function HubspotCompanies() {
                 })
                 if (!res.ok) {
                     const error = await res.json()
-                    alert(error.error || 'Failed to update company')
+                    setModalConfig({
+                        isOpen: true,
+                        type: 'error',
+                        title: 'Update Failed',
+                        message: error.error || 'Failed to update company'
+                    })
                     return
                 }
                 setEditingId(null)
@@ -78,7 +92,12 @@ export default function HubspotCompanies() {
                 })
                 if (!res.ok) {
                     const error = await res.json()
-                    alert(error.error || 'Failed to create company')
+                    setModalConfig({
+                        isOpen: true,
+                        type: 'error',
+                        title: 'Creation Failed',
+                        message: error.error || 'Failed to create company'
+                    })
                     return
                 }
             }
@@ -87,7 +106,12 @@ export default function HubspotCompanies() {
             setFormOpen(false)
             await fetchCompanies()
         } catch (error: any) {
-            alert('An error occurred: ' + (error.message || 'Unknown error'))
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Error',
+                message: 'An error occurred: ' + (error.message || 'Unknown error')
+            })
         }
     }
 
@@ -116,12 +140,22 @@ export default function HubspotCompanies() {
             })
             if (!res.ok) {
                 const error = await res.json()
-                alert(error.error || 'Failed to update company')
+                setModalConfig({
+                    isOpen: true,
+                    type: 'error',
+                    title: 'Update Failed',
+                    message: error.error || 'Failed to update company'
+                })
                 return
             }
             await fetchCompanies()
         } catch (error: any) {
-            alert('An error occurred: ' + (error.message || 'Unknown error'))
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Error',
+                message: 'An error occurred: ' + (error.message || 'Unknown error')
+            })
         }
     }
 
@@ -145,7 +179,12 @@ export default function HubspotCompanies() {
             fetchCompanies()
         } else {
             const error = await res.json()
-            alert(error.error || 'Failed to delete company')
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Delete Failed',
+                message: error.error || 'Failed to delete company'
+            })
         }
         setDeleteConfirm({ show: false, companyId: null })
     }
@@ -155,6 +194,11 @@ export default function HubspotCompanies() {
     }
 
     const handleSync = async () => {
+        setShowSyncConfirm(true)
+    }
+
+    const handleConfirmSync = async () => {
+        setShowSyncConfirm(false)
         setSyncing(true)
         try {
             const res = await fetch('/api/hubspot-companies/sync', {
@@ -173,23 +217,40 @@ export default function HubspotCompanies() {
                         message += `\n\nFirst 10 errors:\n${data.results.errors.slice(0, 10).join('\n')}\n\n... and ${errorCount - 10} more`
                     }
                 }
-                alert(message)
+                setModalConfig({
+                    isOpen: true,
+                    type: errorCount > 0 ? 'info' : 'success',
+                    title: 'Sync Results',
+                    message: message
+                })
                 await fetchCompanies()
             } else {
-                alert(data.error || 'Failed to sync companies')
+                setModalConfig({
+                    isOpen: true,
+                    type: 'error',
+                    title: 'Sync Failed',
+                    message: data.error || 'Failed to sync companies'
+                })
             }
         } catch (error: any) {
-            alert('An error occurred: ' + (error.message || 'Unknown error'))
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Sync Error',
+                message: 'An error occurred: ' + (error.message || 'Unknown error')
+            })
         } finally {
             setSyncing(false)
         }
     }
 
     const handleGenerateAbbreviations = async () => {
-        if (!confirm('This will generate abbreviations for all companies that don\'t have one. Continue?')) {
-            return
-        }
-        
+        setShowAbbrevConfirm(true)
+    }
+
+    const handleConfirmGenerateAbbreviations = async () => {
+        setShowAbbrevConfirm(false)
+
         setGenerating(true)
         try {
             const res = await fetch('/api/hubspot-companies/generate-abbreviations', {
@@ -208,13 +269,28 @@ export default function HubspotCompanies() {
                         message += `\n\nFirst 10 errors:\n${data.results.errors.slice(0, 10).join('\n')}\n\n... and ${errorCount - 10} more`
                     }
                 }
-                alert(message)
+                setModalConfig({
+                    isOpen: true,
+                    type: errorCount > 0 ? 'info' : 'success',
+                    title: 'Abbreviation Results',
+                    message: message
+                })
                 await fetchCompanies()
             } else {
-                alert('Failed to generate abbreviations: ' + (data.error || 'Unknown error'))
+                setModalConfig({
+                    isOpen: true,
+                    type: 'error',
+                    title: 'Generation Failed',
+                    message: 'Failed to generate abbreviations: ' + (data.error || 'Unknown error')
+                })
             }
         } catch (error: any) {
-            alert('An error occurred: ' + (error.message || 'Unknown error'))
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Generation Error',
+                message: 'An error occurred: ' + (error.message || 'Unknown error')
+            })
         } finally {
             setGenerating(false)
         }
@@ -243,32 +319,32 @@ export default function HubspotCompanies() {
                                 <form onSubmit={handleSubmit} className="space-y-4">
                                     <div>
                                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Company Name</label>
-                                        <input 
-                                            type="text" 
-                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" 
-                                            value={form.name} 
-                                            onChange={e => setForm({ ...form, name: e.target.value })} 
+                                        <input
+                                            type="text"
+                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+                                            value={form.name}
+                                            onChange={e => setForm({ ...form, name: e.target.value })}
                                             placeholder="Acme Corp"
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Company ID <span className="text-red-500">*</span></label>
-                                        <input 
-                                            type="text" 
-                                            required 
-                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-mono" 
-                                            value={form.companyId} 
-                                            onChange={e => setForm({ ...form, companyId: e.target.value })} 
+                                        <input
+                                            type="text"
+                                            required
+                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-mono"
+                                            value={form.companyId}
+                                            onChange={e => setForm({ ...form, companyId: e.target.value })}
                                             placeholder="123456789"
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">BTP Abbreviation</label>
-                                        <input 
-                                            type="text" 
-                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" 
-                                            value={form.btpAbbreviation} 
-                                            onChange={e => setForm({ ...form, btpAbbreviation: e.target.value })} 
+                                        <input
+                                            type="text"
+                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+                                            value={form.btpAbbreviation}
+                                            onChange={e => setForm({ ...form, btpAbbreviation: e.target.value })}
                                             placeholder="ACME"
                                         />
                                     </div>
@@ -320,17 +396,16 @@ export default function HubspotCompanies() {
                                 const btpAbbr = c.btpAbbreviation?.toLowerCase() || ''
                                 return name.includes(searchLower) || companyId.includes(searchLower) || btpAbbr.includes(searchLower)
                             })
-                            
+
                             // Group companies by activeClient
                             const partnerCompanies = filteredCompanies.filter(c => c.activeClient)
                             const contactCompanies = filteredCompanies.filter(c => !c.activeClient)
-                            
+
                             const renderCompanyCard = (c: HubspotCompany) => (
-                                <div key={c.id} className={`group p-3 rounded-lg shadow-sm border hover:shadow-md transition-all ${
-                                    c.activeClient 
-                                        ? 'bg-green-900/30 border-green-700/50' 
-                                        : 'bg-slate-800 border-slate-700'
-                                }`}>
+                                <div key={c.id} className={`group p-3 rounded-lg shadow-sm border hover:shadow-md transition-all ${c.activeClient
+                                    ? 'bg-green-900/30 border-green-700/50'
+                                    : 'bg-slate-800 border-slate-700'
+                                    }`}>
                                     <div className="flex justify-between items-center">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-0.5">
@@ -381,7 +456,7 @@ export default function HubspotCompanies() {
                                     </div>
                                 </div>
                             )
-                            
+
                             if (partnerCompanies.length === 0 && contactCompanies.length === 0) {
                                 return (
                                     <div className="text-center py-8 bg-slate-800 rounded-lg border-2 border-dashed border-slate-600 text-slate-500 text-sm">
@@ -389,7 +464,7 @@ export default function HubspotCompanies() {
                                     </div>
                                 )
                             }
-                            
+
                             return (
                                 <div className="space-y-6">
                                     {/* Partner Companies */}
@@ -410,11 +485,10 @@ export default function HubspotCompanies() {
                                                     <button
                                                         onClick={handleSync}
                                                         disabled={syncing}
-                                                        className={`px-4 py-1.5 rounded-lg font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${
-                                                            syncing
-                                                                ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
-                                                                : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
-                                                        }`}
+                                                        className={`px-4 py-1.5 rounded-lg font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${syncing
+                                                            ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
+                                                            : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
+                                                            }`}
                                                         title="Sync all companies from HubSpot"
                                                     >
                                                         {syncing ? (
@@ -428,7 +502,7 @@ export default function HubspotCompanies() {
                                                         ) : (
                                                             <>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2"/>
+                                                                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2" />
                                                                 </svg>
                                                                 <span className="text-sm">Sync</span>
                                                             </>
@@ -437,11 +511,10 @@ export default function HubspotCompanies() {
                                                     <button
                                                         onClick={handleGenerateAbbreviations}
                                                         disabled={generating}
-                                                        className={`px-4 py-1.5 rounded-lg font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${
-                                                            generating
-                                                                ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
-                                                                : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
-                                                        }`}
+                                                        className={`px-4 py-1.5 rounded-lg font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${generating
+                                                            ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
+                                                            : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+                                                            }`}
                                                         title="Generate abbreviations for companies without one"
                                                     >
                                                         {generating ? (
@@ -455,7 +528,7 @@ export default function HubspotCompanies() {
                                                         ) : (
                                                             <>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                                                                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                                                                 </svg>
                                                                 <span className="text-sm">Generate Abbrevs</span>
                                                             </>
@@ -468,7 +541,7 @@ export default function HubspotCompanies() {
                                             </div>
                                         </div>
                                     )}
-                                    
+
                                     {/* Contact Companies */}
                                     {contactCompanies.length > 0 && (
                                         <div>
@@ -526,6 +599,90 @@ export default function HubspotCompanies() {
                     </div>
                 </div>
             )}
+
+            {/* Abbreviation Generation Confirmation Modal */}
+            {showAbbrevConfirm && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowAbbrevConfirm(false)}>
+                    <div className="bg-slate-800 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-600">
+                                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-100">Generate Abbreviations</h3>
+                                <p className="text-slate-500 text-sm">Automated generation</p>
+                            </div>
+                        </div>
+                        <p className="text-slate-600 mb-6">
+                            This will generate abbreviations for all companies that don't have one using AI. This process might take a few moments.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowAbbrevConfirm(false)}
+                                className="flex-1 px-4 py-3 bg-slate-700 text-slate-500 rounded-xl font-semibold hover:bg-slate-600 transition-all active:scale-95"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmGenerateAbbreviations}
+                                className="flex-1 px-4 py-3 bg-purple-500 text-white rounded-xl font-semibold hover:bg-purple-600 transition-all active:scale-95"
+                            >
+                                Generate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Sync Confirmation Modal */}
+            {showSyncConfirm && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowSyncConfirm(false)}>
+                    <div className="bg-slate-800 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
+                                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-100">Sync Companies</h3>
+                                <p className="text-slate-500 text-sm">Update from HubSpot</p>
+                            </div>
+                        </div>
+                        <p className="text-slate-600 mb-6">
+                            This will fetch and update all company data from HubSpot. This might take a moment if there are many updates.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowSyncConfirm(false)}
+                                className="flex-1 px-4 py-3 bg-slate-700 text-slate-500 rounded-xl font-semibold hover:bg-slate-600 transition-all active:scale-95"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmSync}
+                                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all active:scale-95"
+                            >
+                                Sync Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Notification Results Modal */}
+            <ErrorModal
+                isOpen={modalConfig.isOpen}
+                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                type={modalConfig.type}
+                title={modalConfig.title}
+                message={modalConfig.message}
+            />
 
         </div>
     )

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/router"
 import Header from '../../components/Header'
+import ErrorModal from '../../components/ErrorModal'
 
 type SlackChannel = {
     id: number
@@ -26,6 +27,13 @@ export default function SlackChannels() {
     const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; channelId: number | null }>({ show: false, channelId: null })
     const [syncing, setSyncing] = useState(false)
     const [search, setSearch] = useState('')
+    const [showSyncConfirm, setShowSyncConfirm] = useState(false)
+    const [modalConfig, setModalConfig] = useState<{ isOpen: boolean, type: 'error' | 'success' | 'info', title: string, message: string }>({
+        isOpen: false,
+        type: 'info',
+        title: '',
+        message: ''
+    })
 
     useEffect(() => {
         if (status === "unauthenticated") {
@@ -63,7 +71,12 @@ export default function SlackChannels() {
                 })
                 if (!res.ok) {
                     const error = await res.json()
-                    alert(error.error || 'Failed to update channel')
+                    setModalConfig({
+                        isOpen: true,
+                        type: 'error',
+                        title: 'Update Failed',
+                        message: error.error || 'Failed to update channel'
+                    })
                     return
                 }
                 setEditingId(null)
@@ -75,7 +88,12 @@ export default function SlackChannels() {
                 })
                 if (!res.ok) {
                     const error = await res.json()
-                    alert(error.error || 'Failed to create channel')
+                    setModalConfig({
+                        isOpen: true,
+                        type: 'error',
+                        title: 'Creation Failed',
+                        message: error.error || 'Failed to create channel'
+                    })
                     return
                 }
             }
@@ -83,7 +101,12 @@ export default function SlackChannels() {
             setForm({ channelId: '', name: '', isClient: false })
             await fetchChannels()
         } catch (error: any) {
-            alert('An error occurred: ' + (error.message || 'Unknown error'))
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Error',
+                message: 'An error occurred: ' + (error.message || 'Unknown error')
+            })
         }
     }
 
@@ -109,12 +132,22 @@ export default function SlackChannels() {
             })
             if (!res.ok) {
                 const error = await res.json()
-                alert(error.error || 'Failed to update channel')
+                setModalConfig({
+                    isOpen: true,
+                    type: 'error',
+                    title: 'Update Failed',
+                    message: error.error || 'Failed to update channel'
+                })
                 return
             }
             await fetchChannels()
         } catch (error: any) {
-            alert('An error occurred: ' + (error.message || 'Unknown error'))
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Error',
+                message: 'An error occurred: ' + (error.message || 'Unknown error')
+            })
         }
     }
 
@@ -137,7 +170,12 @@ export default function SlackChannels() {
             fetchChannels()
         } else {
             const error = await res.json()
-            alert(error.error || 'Failed to delete channel')
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Delete Failed',
+                message: error.error || 'Failed to delete channel'
+            })
         }
         setDeleteConfirm({ show: false, channelId: null })
     }
@@ -147,6 +185,11 @@ export default function SlackChannels() {
     }
 
     const handleSync = async () => {
+        setShowSyncConfirm(true)
+    }
+
+    const handleConfirmSync = async () => {
+        setShowSyncConfirm(false)
         setSyncing(true)
         try {
             const res = await fetch('/api/slack-channels/sync', {
@@ -165,13 +208,28 @@ export default function SlackChannels() {
                         message += `\n\nFirst 10 errors:\n${data.results.errors.slice(0, 10).join('\n')}\n\n... and ${errorCount - 10} more`
                     }
                 }
-                alert(message)
+                setModalConfig({
+                    isOpen: true,
+                    type: errorCount > 0 ? 'info' : 'success',
+                    title: 'Sync Results',
+                    message: message
+                })
                 await fetchChannels()
             } else {
-                alert(data.error || 'Failed to sync channels')
+                setModalConfig({
+                    isOpen: true,
+                    type: 'error',
+                    title: 'Sync Failed',
+                    message: data.error || 'Failed to sync channels'
+                })
             }
         } catch (error: any) {
-            alert('An error occurred: ' + (error.message || 'Unknown error'))
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Sync Error',
+                message: 'An error occurred: ' + (error.message || 'Unknown error')
+            })
         } finally {
             setSyncing(false)
         }
@@ -200,22 +258,22 @@ export default function SlackChannels() {
                                 <form onSubmit={handleSubmit} className="space-y-4">
                                     <div>
                                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Channel Name</label>
-                                        <input 
-                                            type="text" 
-                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm" 
-                                            value={form.name} 
-                                            onChange={e => setForm({ ...form, name: e.target.value })} 
+                                        <input
+                                            type="text"
+                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+                                            value={form.name}
+                                            onChange={e => setForm({ ...form, name: e.target.value })}
                                             placeholder="#general"
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Channel ID <span className="text-red-500">*</span></label>
-                                        <input 
-                                            type="text" 
-                                            required 
-                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-mono" 
-                                            value={form.channelId} 
-                                            onChange={e => setForm({ ...form, channelId: e.target.value })} 
+                                        <input
+                                            type="text"
+                                            required
+                                            className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-mono"
+                                            value={form.channelId}
+                                            onChange={e => setForm({ ...form, channelId: e.target.value })}
                                             placeholder="C12345678"
                                         />
                                     </div>
@@ -266,17 +324,16 @@ export default function SlackChannels() {
                                 const channelId = c.channelId.toLowerCase()
                                 return name.includes(searchLower) || channelId.includes(searchLower)
                             })
-                            
+
                             // Group channels by isClient
                             const partnerChannels = filteredChannels.filter(c => c.isClient)
                             const internalChannels = filteredChannels.filter(c => !c.isClient)
-                            
+
                             const renderChannelCard = (c: SlackChannel) => (
-                                <div key={c.id} className={`group p-3 rounded-lg shadow-sm border hover:shadow-md transition-all ${
-                                    c.isClient 
-                                        ? 'bg-green-900/30 border-green-700/50' 
-                                        : 'bg-slate-800 border-slate-700'
-                                }`}>
+                                <div key={c.id} className={`group p-3 rounded-lg shadow-sm border hover:shadow-md transition-all ${c.isClient
+                                    ? 'bg-green-900/30 border-green-700/50'
+                                    : 'bg-slate-800 border-slate-700'
+                                    }`}>
                                     <div className="flex justify-between items-center">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-0.5">
@@ -324,7 +381,7 @@ export default function SlackChannels() {
                                     </div>
                                 </div>
                             )
-                            
+
                             if (partnerChannels.length === 0 && internalChannels.length === 0) {
                                 return (
                                     <div className="text-center py-8 bg-slate-800 rounded-lg border-2 border-dashed border-slate-600 text-slate-500 text-sm">
@@ -332,7 +389,7 @@ export default function SlackChannels() {
                                     </div>
                                 )
                             }
-                            
+
                             return (
                                 <div className="space-y-6">
                                     {/* Partner Channels */}
@@ -353,11 +410,10 @@ export default function SlackChannels() {
                                                     <button
                                                         onClick={handleSync}
                                                         disabled={syncing}
-                                                        className={`px-4 py-1.5 rounded-lg font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${
-                                                            syncing
-                                                                ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
-                                                                : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
-                                                        }`}
+                                                        className={`px-4 py-1.5 rounded-lg font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${syncing
+                                                            ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
+                                                            : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
+                                                            }`}
                                                         title="Sync all channels from Slack"
                                                     >
                                                         {syncing ? (
@@ -386,7 +442,7 @@ export default function SlackChannels() {
                                             </div>
                                         </div>
                                     )}
-                                    
+
                                     {/* Internal Channels */}
                                     {internalChannels.length > 0 && (
                                         <div>
@@ -444,6 +500,54 @@ export default function SlackChannels() {
                     </div>
                 </div>
             )}
+            {/* Sync Confirmation Modal */}
+            {showSyncConfirm && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowSyncConfirm(false)}>
+                    <div className="bg-slate-800 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
+                                    <polyline points="23 4 23 10 17 10"></polyline>
+                                    <polyline points="1 20 1 14 7 14"></polyline>
+                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-100">Sync Channels</h3>
+                                <p className="text-slate-500 text-sm">Update from Slack</p>
+                            </div>
+                        </div>
+                        <p className="text-slate-600 mb-6">
+                            This will fetch and update all channel data from Slack. This might take a moment if there are many updates.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowSyncConfirm(false)}
+                                className="flex-1 px-4 py-3 bg-slate-700 text-slate-500 rounded-xl font-semibold hover:bg-slate-600 transition-all active:scale-95"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmSync}
+                                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all active:scale-95"
+                            >
+                                Sync Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Notification Results Modal */}
+            <ErrorModal
+                isOpen={modalConfig.isOpen}
+                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                type={modalConfig.type}
+                title={modalConfig.title}
+                message={modalConfig.message}
+            />
 
         </div>
     )
