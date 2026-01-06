@@ -169,10 +169,12 @@ export default async function handler(
         // Automatically process the log if it is authentic
         if (fireHookLog.isAuthentic && fireHookLog.meetingId) {
             console.log(`[FireSpot] Triggering automatic processing for log ID: ${fireHookLog.id}`)
-            // We call this without awaiting to return 200 to Fireflies quickly
-            FirefliesService.processFireHookLog(fireHookLog.id).catch(err => {
+            try {
+                const result = await FirefliesService.processFireHookLog(fireHookLog.id)
+                console.log(`[FireSpot] Automatic processing completed for ID ${fireHookLog.id}:`, result)
+            } catch (err) {
                 console.error(`[FireSpot] Background processing failed for log ID ${fireHookLog.id}:`, err)
-            })
+            }
         }
 
         return res.status(200).json({

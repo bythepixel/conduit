@@ -27,6 +27,7 @@ export default function MeetingNotes() {
     const [notes, setNotes] = useState<MeetingNote[]>([])
     const [loading, setLoading] = useState(true)
     const [syncing, setSyncing] = useState(false)
+    const [fetchingNotes, setFetchingNotes] = useState<Set<string>>(new Set())
     const [search, setSearch] = useState('')
     const [errorModal, setErrorModal] = useState<{ isOpen: boolean; message: string; type?: 'error' | 'success' | 'info' }>({
         isOpen: false,
@@ -87,7 +88,7 @@ export default function MeetingNotes() {
                 await fetchNotes()
             } else {
                 const errorMessage = data.error || data.details?.message || 'Failed to sync meeting notes'
-                const fullMessage = data.details 
+                const fullMessage = data.details
                     ? `${errorMessage}\n\nDetails:\n${JSON.stringify(data.details, null, 2)}`
                     : errorMessage
                 setErrorModal({
@@ -107,6 +108,43 @@ export default function MeetingNotes() {
         }
     }
 
+    const handleFetchMeetingNotes = async (meetingId: string) => {
+        if (fetchingNotes.has(meetingId)) return
+
+        setFetchingNotes(prev => new Set(prev).add(meetingId))
+        try {
+            const res = await fetch(`/api/meeting-notes/${meetingId}/fetch`, {
+                method: 'POST'
+            })
+            const data = await res.json()
+
+            if (res.ok) {
+                // Update the local state for this specific note
+                setNotes(prevNotes => prevNotes.map(n =>
+                    n.meetingId === meetingId ? { ...n, ...data.note } : n
+                ))
+            } else {
+                setErrorModal({
+                    isOpen: true,
+                    message: data.error || 'Failed to fetch meeting notes',
+                    type: 'error'
+                })
+            }
+        } catch (error: any) {
+            setErrorModal({
+                isOpen: true,
+                message: 'An error occurred while fetching notes: ' + error.message,
+                type: 'error'
+            })
+        } finally {
+            setFetchingNotes(prev => {
+                const newSet = new Set(prev)
+                newSet.delete(meetingId)
+                return newSet
+            })
+        }
+    }
+
     const formatDuration = (minutes?: number) => {
         if (!minutes) return 'N/A'
         const hours = Math.floor(minutes / 60)
@@ -122,9 +160,9 @@ export default function MeetingNotes() {
         if (!dateString) return 'N/A'
         try {
             const date = new Date(dateString)
-            return date.toLocaleDateString('en-US', { 
-                year: 'numeric', 
-                month: 'short', 
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
                 day: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
@@ -166,12 +204,12 @@ export default function MeetingNotes() {
                         const meetingId = note.meetingId.toLowerCase()
                         const participants = note.participants.join(' ').toLowerCase()
                         const summary = note.summary?.toLowerCase() || ''
-                        return title.includes(searchLower) || 
-                               meetingId.includes(searchLower) || 
-                               participants.includes(searchLower) ||
-                               summary.includes(searchLower)
+                        return title.includes(searchLower) ||
+                            meetingId.includes(searchLower) ||
+                            participants.includes(searchLower) ||
+                            summary.includes(searchLower)
                     })
-                    
+
                     // Group meetings by whether they have external participants
                     const clientMeetings = filteredNotes.filter(note => {
                         return note.participants.some(p => !p.toLowerCase().includes('bythepixel.com'))
@@ -179,149 +217,176 @@ export default function MeetingNotes() {
                     const internalMeetings = filteredNotes.filter(note => {
                         return note.participants.every(p => p.toLowerCase().includes('bythepixel.com'))
                     })
-                    
+
                     const renderNoteCard = (note: MeetingNote) => {
-                        const hasExternalParticipant = note.participants.some(p => 
+                        const hasExternalParticipant = note.participants.some(p =>
                             !p.toLowerCase().includes('bythepixel.com')
                         )
                         return (
-                                <div 
-                                    key={note.id} 
-                                    className={`p-4 rounded-lg shadow-sm border hover:shadow-md transition-all ${
-                                        hasExternalParticipant
-                                            ? 'bg-amber-900/30 border-amber-700/50'
-                                            : 'bg-slate-800 border-slate-700'
+                            <div
+                                key={note.id}
+                                className={`p-4 rounded-lg shadow-sm border hover:shadow-md transition-all ${hasExternalParticipant
+                                    ? 'bg-amber-900/30 border-amber-700/50'
+                                    : 'bg-slate-800 border-slate-700'
                                     }`}
-                                >
-                                    <div className="mb-3">
-                                        <h3 className="font-semibold text-slate-100 text-lg mb-1 line-clamp-2">
-                                            {note.title || 'Untitled Meeting'}
-                                        </h3>
-                                        <p className="text-slate-500 text-xs font-mono mb-2">{note.meetingId}</p>
-                                    </div>
-                                    
-                                    {note.summary && (() => {
-                                        // Extract keywords from summary if present
-                                        const summaryParts = note.summary.split('\n\n')
-                                        const keywordsPart = summaryParts.find(part => part.startsWith('Keywords:'))
-                                        const otherParts = summaryParts.filter(part => !part.startsWith('Keywords:'))
-                                        const otherSummary = otherParts.length > 0 ? otherParts.join('\n\n') : null
-                                        
-                                        return (
-                                            <div className="mb-3">
-                                                {keywordsPart && (
-                                                    <div className="mb-2">
-                                                        <p className="text-slate-300 text-xs line-clamp-2">{keywordsPart}</p>
-                                                    </div>
-                                                )}
-                                                {otherSummary && (
-                                                    <p className="text-slate-300 text-sm line-clamp-3">{otherSummary}</p>
-                                                )}
-                                            </div>
-                                        )
-                                    })()}
-                                    
-                                    <div className="space-y-2 text-xs text-slate-400">
-                                        {note.meetingDate && (
-                                            <div className="flex items-center gap-2">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                                    <line x1="16" y1="2" x2="16" y2="6"></line>
-                                                    <line x1="8" y1="2" x2="8" y2="6"></line>
-                                                    <line x1="3" y1="10" x2="21" y2="10"></line>
-                                                </svg>
-                                                <span>{formatDate(note.meetingDate)}</span>
-                                            </div>
-                                        )}
-                                        
-                                        {note.duration && (
-                                            <div className="flex items-center gap-2">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <circle cx="12" cy="12" r="10"></circle>
-                                                    <polyline points="12 6 12 12 16 14"></polyline>
-                                                </svg>
-                                                <span>{formatDuration(note.duration)}</span>
-                                            </div>
-                                        )}
-                                        
-                                        {note.participants.length > 0 && (
-                                            <div className="flex items-start gap-2">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5">
-                                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                                    <circle cx="9" cy="7" r="4"></circle>
-                                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                                                </svg>
-                                                <div className="flex-1">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            const newExpanded = new Set(expandedParticipants)
-                                                            if (newExpanded.has(note.id)) {
-                                                                newExpanded.delete(note.id)
-                                                            } else {
-                                                                newExpanded.add(note.id)
-                                                            }
-                                                            setExpandedParticipants(newExpanded)
-                                                        }}
-                                                        className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
-                                                    >
-                                                        {note.participants.length} participant{note.participants.length !== 1 ? 's' : ''}
-                                                        <span className="ml-1 text-xs">
-                                                            {expandedParticipants.has(note.id) ? '▼' : '▶'}
-                                                        </span>
-                                                    </button>
-                                                    {expandedParticipants.has(note.id) && (
-                                                        <div className="mt-1 flex flex-wrap gap-1">
-                                                            {note.participants.map((p, i) => {
-                                                                const isByThePixel = p.toLowerCase().includes('bythepixel.com')
-                                                                return (
-                                                                    <span 
-                                                                        key={i} 
-                                                                        className={`px-2 py-0.5 rounded ${
-                                                                            isByThePixel 
-                                                                                ? 'bg-slate-700 text-slate-300' 
-                                                                                : 'bg-amber-700 text-amber-100'
-                                                                        }`}
-                                                                    >
-                                                                        {p}
-                                                                    </span>
-                                                                )
-                                                            })}
-                                                        </div>
-                                                    )}
+                            >
+                                <div className="mb-3">
+                                    <h3 className="font-semibold text-slate-100 text-lg mb-1 line-clamp-2">
+                                        {note.title || 'Untitled Meeting'}
+                                    </h3>
+                                    <p className="text-slate-500 text-xs font-mono mb-2">{note.meetingId}</p>
+                                </div>
+
+                                {note.summary && (() => {
+                                    // Extract keywords from summary if present
+                                    const summaryParts = note.summary.split('\n\n')
+                                    const keywordsPart = summaryParts.find(part => part.startsWith('Keywords:'))
+                                    const otherParts = summaryParts.filter(part => !part.startsWith('Keywords:'))
+                                    const otherSummary = otherParts.length > 0 ? otherParts.join('\n\n') : null
+
+                                    return (
+                                        <div className="mb-3">
+                                            {keywordsPart && (
+                                                <div className="mb-2">
+                                                    <p className="text-slate-300 text-xs line-clamp-2">{keywordsPart}</p>
                                                 </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    
-                                    {note.notes && (
-                                        <div className="mt-3 pt-3 border-t border-slate-700">
-                                            <p className="text-slate-500 text-xs">
-                                                <span className="font-semibold text-slate-400">Notes: </span>
-                                                {note.notes.length > 100 
-                                                    ? `${note.notes.substring(0, 100)}...` 
-                                                    : note.notes}
-                                            </p>
+                                            )}
+                                            {otherSummary && (
+                                                <p className="text-slate-300 text-sm line-clamp-3">{otherSummary}</p>
+                                            )}
+                                        </div>
+                                    )
+                                })()}
+
+                                <div className="space-y-2 text-xs text-slate-400">
+                                    {note.meetingDate && (
+                                        <div className="flex items-center gap-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                                            </svg>
+                                            <span>{formatDate(note.meetingDate)}</span>
                                         </div>
                                     )}
-                                    
-                                    <div className="mt-4 pt-3 border-t border-slate-700">
-                                        <button
-                                            onClick={() => setSelectedNote(note)}
-                                            className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-all text-sm flex items-center justify-center gap-2"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                                <circle cx="12" cy="12" r="3"></circle>
+
+                                    {note.duration && (
+                                        <div className="flex items-center gap-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <polyline points="12 6 12 12 16 14"></polyline>
                                             </svg>
-                                            View Full Details
-                                        </button>
-                                    </div>
+                                            <span>{formatDuration(note.duration)}</span>
+                                        </div>
+                                    )}
+
+                                    {note.participants.length > 0 && (
+                                        <div className="flex items-start gap-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5">
+                                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                                <circle cx="9" cy="7" r="4"></circle>
+                                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                            </svg>
+                                            <div className="flex-1">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        const newExpanded = new Set(expandedParticipants)
+                                                        if (newExpanded.has(note.id)) {
+                                                            newExpanded.delete(note.id)
+                                                        } else {
+                                                            newExpanded.add(note.id)
+                                                        }
+                                                        setExpandedParticipants(newExpanded)
+                                                    }}
+                                                    className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
+                                                >
+                                                    {note.participants.length} participant{note.participants.length !== 1 ? 's' : ''}
+                                                    <span className="ml-1 text-xs">
+                                                        {expandedParticipants.has(note.id) ? '▼' : '▶'}
+                                                    </span>
+                                                </button>
+                                                {expandedParticipants.has(note.id) && (
+                                                    <div className="mt-1 flex flex-wrap gap-1">
+                                                        {note.participants.map((p, i) => {
+                                                            const isByThePixel = p.toLowerCase().includes('bythepixel.com')
+                                                            return (
+                                                                <span
+                                                                    key={i}
+                                                                    className={`px-2 py-0.5 rounded ${isByThePixel
+                                                                        ? 'bg-slate-700 text-slate-300'
+                                                                        : 'bg-amber-700 text-amber-100'
+                                                                        }`}
+                                                                >
+                                                                    {p}
+                                                                </span>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
+
+                                {note.notes && (
+                                    <div className="mt-3 pt-3 border-t border-slate-700">
+                                        <p className="text-slate-500 text-xs">
+                                            <span className="font-semibold text-slate-400">Notes: </span>
+                                            {note.notes.length > 100
+                                                ? `${note.notes.substring(0, 100)}...`
+                                                : note.notes}
+                                        </p>
+                                    </div>
+                                )}
+
+                                <div className="mt-4 pt-3 border-t border-slate-700 space-y-2">
+                                    {!note.notes && (
+                                        <button
+                                            onClick={() => handleFetchMeetingNotes(note.meetingId)}
+                                            disabled={fetchingNotes.has(note.meetingId)}
+                                            className={`w-full px-4 py-2 rounded-lg font-semibold transition-all text-sm flex items-center justify-center gap-2 ${fetchingNotes.has(note.meetingId)
+                                                ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                                                : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-emerald-900/20'
+                                                }`}
+                                        >
+                                            {fetchingNotes.has(note.meetingId) ? (
+                                                <>
+                                                    <svg className="animate-spin h-4 w-4 text-emerald-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    Fetching...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                                        <polyline points="7 10 12 15 17 10"></polyline>
+                                                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                                                    </svg>
+                                                    Fetch Notes
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => setSelectedNote(note)}
+                                        className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-all text-sm flex items-center justify-center gap-2"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                            <circle cx="12" cy="12" r="3"></circle>
+                                        </svg>
+                                        View Full Details
+                                    </button>
+                                </div>
+                            </div>
                         )
                     }
-                    
+
                     if (clientMeetings.length === 0 && internalMeetings.length === 0) {
                         return (
                             <div className="text-center py-12 bg-slate-800 rounded-lg border-2 border-dashed border-slate-600 text-slate-500">
@@ -329,7 +394,7 @@ export default function MeetingNotes() {
                             </div>
                         )
                     }
-                    
+
                     return (
                         <div className="space-y-6">
                             {/* Client Meetings */}
@@ -350,11 +415,10 @@ export default function MeetingNotes() {
                                             <button
                                                 onClick={handleSync}
                                                 disabled={syncing}
-                                                className={`px-4 py-1.5 rounded-lg font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${
-                                                    syncing
-                                                        ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
-                                                        : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
-                                                }`}
+                                                className={`px-4 py-1.5 rounded-lg font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${syncing
+                                                    ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
+                                                    : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
+                                                    }`}
                                                 title="Sync all meeting notes from Fireflies.ai"
                                             >
                                                 {syncing ? (
@@ -383,7 +447,7 @@ export default function MeetingNotes() {
                                     </div>
                                 </div>
                             )}
-                            
+
                             {/* Internal Meetings */}
                             {internalMeetings.length > 0 && (
                                 <div>

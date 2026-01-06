@@ -3,6 +3,8 @@ import Header from '../../components/Header'
 import { useState, useEffect } from 'react'
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/router"
+import { Play, Trash2, CheckCircle, XCircle, Info, AlertTriangle, Loader2 } from 'lucide-react'
+import ErrorModal from '../../components/ErrorModal'
 
 type FireHookLog = {
     id: number
@@ -30,6 +32,19 @@ export default function FireHookLogs() {
     const [limit] = useState(50)
     const [offset, setOffset] = useState(0)
     const [processingLogs, setProcessingLogs] = useState<Set<number>>(new Set())
+    const [deletingLogId, setDeletingLogId] = useState<number | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: 'error' | 'success' | 'info' | undefined;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'info'
+    })
 
     useEffect(() => {
         if (status === "unauthenticated") {
@@ -74,7 +89,7 @@ export default function FireHookLogs() {
 
     const handleProcess = async (logId: number, e: React.MouseEvent) => {
         e.stopPropagation() // Prevent row expansion
-        
+
         if (processingLogs.has(logId)) {
             return // Already processing
         }
@@ -90,7 +105,7 @@ export default function FireHookLogs() {
 
             if (!res.ok) {
                 console.error('Failed to process fire hook log:', res.status, data)
-                const errorMsg = data.details 
+                const errorMsg = data.details
                     ? `${data.error}: ${typeof data.details === 'string' ? data.details : JSON.stringify(data.details)}`
                     : data.error || 'Unknown error'
                 alert(`Failed to process log: ${errorMsg}`)
@@ -110,16 +125,54 @@ export default function FireHookLogs() {
         }
     }
 
+    const handleDelete = async (logId: number) => {
+        setIsDeleting(true)
+        try {
+            const res = await fetch(`/api/fire-hook-logs/${logId}`, {
+                method: 'DELETE',
+            })
+
+            if (res.ok) {
+                setModalConfig({
+                    isOpen: true,
+                    title: 'Success',
+                    message: 'Fire hook log deleted successfully',
+                    type: 'success'
+                })
+                fetchLogs()
+            } else {
+                const data = await res.json().catch(() => ({ error: 'Unknown error' }))
+                setModalConfig({
+                    isOpen: true,
+                    title: 'Error',
+                    message: data.error || 'Failed to delete fire hook log',
+                    type: 'error'
+                })
+            }
+        } catch (error: any) {
+            setModalConfig({
+                isOpen: true,
+                title: 'Error',
+                message: error.message || 'An error occurred while deleting the log',
+                type: 'error'
+            })
+        } finally {
+            setIsDeleting(false)
+            setDeletingLogId(null)
+        }
+    }
+
     const formatDate = (dateString: string) => {
         const date = new Date(dateString)
-        return date.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-        })
+        const pad = (n: number) => n.toString().padStart(2, '0')
+
+        const month = pad(date.getMonth() + 1)
+        const day = pad(date.getDate())
+        const year = date.getFullYear().toString().slice(-2)
+        const hours = pad(date.getHours())
+        const minutes = pad(date.getMinutes())
+
+        return `${month}/${day}/${year} ${hours}:${minutes}`
     }
 
     const getEventTypeBadge = (eventType: string) => {
@@ -236,31 +289,40 @@ export default function FireHookLogs() {
                                                             {log.processed ? 'Processed' : 'Pending'}
                                                         </span>
                                                         {log.errorMessage && (
-                                                            <div className="text-xs text-red-400 mt-1 max-w-xs truncate" title={log.errorMessage}>
-                                                                {log.errorMessage}
+                                                            <div className="mt-1">
+                                                                <span className="px-1.5 py-0.5 rounded-md bg-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-wider border border-red-500/30">
+                                                                    Error
+                                                                </span>
                                                             </div>
                                                         )}
                                                     </td>
                                                     <td className="py-4 px-4">
-                                                        {!log.processed && log.meetingId && (
+                                                        <div className="flex items-center gap-2">
+                                                            {!log.processed && log.meetingId && (
+                                                                <button
+                                                                    onClick={(e) => handleProcess(log.id, e)}
+                                                                    disabled={processingLogs.has(log.id)}
+                                                                    className="p-1.5 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                                                    title="Process Log"
+                                                                >
+                                                                    {processingLogs.has(log.id) ? (
+                                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                                    ) : (
+                                                                        <Play className="h-4 w-4 fill-current" />
+                                                                    )}
+                                                                </button>
+                                                            )}
                                                             <button
-                                                                onClick={(e) => handleProcess(log.id, e)}
-                                                                disabled={processingLogs.has(log.id)}
-                                                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    setDeletingLogId(log.id)
+                                                                }}
+                                                                className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all"
+                                                                title="Delete Log"
                                                             >
-                                                                {processingLogs.has(log.id) ? (
-                                                                    <>
-                                                                        <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                        </svg>
-                                                                        Processing...
-                                                                    </>
-                                                                ) : (
-                                                                    'Process'
-                                                                )}
+                                                                <Trash2 className="h-4 w-4" />
                                                             </button>
-                                                        )}
+                                                        </div>
                                                     </td>
                                                     <td className="py-4 px-4">
                                                         <button className="text-slate-400 hover:text-slate-200 transition-colors">
@@ -297,9 +359,9 @@ export default function FireHookLogs() {
                                                                     </div>
                                                                     <div>
                                                                         <span className="font-semibold text-slate-300">Authentic:</span> {
-                                                                            log.isAuthentic === true ? '✓ Yes' : 
-                                                                            log.isAuthentic === false ? '✗ No' : 
-                                                                            '? Unknown'
+                                                                            log.isAuthentic === true ? '✓ Yes' :
+                                                                                log.isAuthentic === false ? '✗ No' :
+                                                                                    '? Unknown'
                                                                         }
                                                                     </div>
                                                                     {log.computedSignature && (
@@ -369,6 +431,54 @@ export default function FireHookLogs() {
                     )}
                 </div>
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {deletingLogId !== null && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-xl max-w-md w-full p-6 sm:p-8">
+                        <div className="flex items-center gap-4 text-red-400 mb-4">
+                            <div className="p-3 bg-red-500/10 rounded-xl">
+                                <AlertTriangle className="h-6 w-6" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-100">Delete Fire Hook Log?</h3>
+                        </div>
+                        <p className="text-slate-400 mb-8">
+                            Are you sure you want to delete this fire hook log? This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setDeletingLogId(null)}
+                                disabled={isDeleting}
+                                className="flex-1 px-4 py-2.5 rounded-xl bg-slate-700 text-slate-300 font-semibold hover:bg-slate-600 transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => handleDelete(deletingLogId)}
+                                disabled={isDeleting}
+                                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isDeleting ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Deleting...
+                                    </>
+                                ) : (
+                                    'Delete'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <ErrorModal
+                isOpen={modalConfig.isOpen}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                type={modalConfig.type}
+                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+            />
         </div>
     )
 }

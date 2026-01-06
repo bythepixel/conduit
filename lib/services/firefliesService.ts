@@ -32,9 +32,43 @@ export class FirefliesService {
             }
 
             if (!fireHookLog.meetingId) {
-                return { success: false, error: 'No meeting ID in fire hook log' }
+                const errorMessage = 'No meeting ID in fire hook log'
+                await this.logError(logId, errorMessage)
+                return { success: false, error: errorMessage }
             }
 
+            const result = await this.fetchAndSyncMeeting(fireHookLog.meetingId)
+
+            if (result.success) {
+                // Mark log as processed
+                await prisma.fireHookLog.update({
+                    where: { id: logId },
+                    data: {
+                        processed: true,
+                        errorMessage: null
+                    }
+                })
+                console.log(`[FirefliesService] Successfully processed log ID: ${logId}`)
+            } else if (result.error) {
+                await this.logError(logId, result.error)
+            }
+
+            return result
+
+        } catch (error: any) {
+            console.error(`[FirefliesService] Error processing log ID ${logId}:`, error)
+            const errorMessage = error.message || 'Unknown error'
+            await this.logError(logId, errorMessage)
+            return { success: false, error: errorMessage }
+        }
+    }
+
+    /**
+     * Fetches meeting details from Fireflies by meetingId and syncs them to the MeetingNote model.
+     * Does not require a FireHookLog.
+     */
+    static async fetchAndSyncMeeting(meetingId: string): Promise<ProcessLogResult> {
+        try {
             const apiKey = getEnv('FIREFLIES_API_KEY', '')
             if (!apiKey) {
                 return { success: false, error: 'FIREFLIES_API_KEY environment variable is not set' }
@@ -54,6 +88,10 @@ export class FirefliesService {
                             action_items
                             outline
                             keywords
+                            overview
+                            gist
+                            bullet_gist
+                            shorthand_bullet
                         }
                         participants
                         duration
@@ -62,7 +100,7 @@ export class FirefliesService {
                 }
             `
 
-            console.log(`[FirefliesService] Attempting to fetch meeting ${fireHookLog.meetingId} from Fireflies API`)
+            console.log(`[FirefliesService] Attempting to fetch meeting ${meetingId} from Fireflies API`)
 
             let response = await fetch(FIREFLIES_GRAPHQL_URL, {
                 method: 'POST',
@@ -72,7 +110,7 @@ export class FirefliesService {
                 },
                 body: JSON.stringify({
                     query: queryById,
-                    variables: { id: fireHookLog.meetingId }
+                    variables: { id: meetingId }
                 })
             })
 
@@ -106,6 +144,10 @@ export class FirefliesService {
                                 action_items
                                 outline
                                 keywords
+                                overview
+                                gist
+                                bullet_gist
+                                shorthand_bullet
                             }
                             participants
                             duration
@@ -122,33 +164,27 @@ export class FirefliesService {
                     },
                     body: JSON.stringify({
                         query: queryAll,
-                        variables: { limit: 500 }
+                        variables: { limit: 50 }
                     })
                 })
 
                 if (!response.ok) {
                     const errorText = await response.text()
-                    const errorMessage = `Fireflies API HTTP error: ${response.status} - ${errorText.substring(0, 500)}`
-                    await this.logError(logId, errorMessage)
-                    return { success: false, error: errorMessage }
+                    return { success: false, error: `Firefly API Error: ${response.status}` }
                 }
 
                 const result = await response.json()
 
                 if (result.errors) {
-                    const errorMessage = `Fireflies API GraphQL errors: ${JSON.stringify(result.errors).substring(0, 500)}`
-                    await this.logError(logId, errorMessage)
-                    return { success: false, error: errorMessage }
+                    return { success: false, error: 'Firefly GraphQL Error' }
                 }
 
                 const transcripts = result.data?.transcripts || []
-                transcript = transcripts.find((t: any) => t.id === fireHookLog.meetingId)
+                transcript = transcripts.find((t: any) => t.id === meetingId)
             }
 
             if (!transcript) {
-                const errorMessage = `Meeting not found in Fireflies API: ${fireHookLog.meetingId}`
-                await this.logError(logId, errorMessage)
-                return { success: false, error: errorMessage }
+                return { success: false, error: `Meeting not found in Fireflies: ${meetingId}` }
             }
 
             // Extract participants
@@ -156,7 +192,7 @@ export class FirefliesService {
             if (Array.isArray(transcript.participants)) {
                 const rawParticipants = transcript.participants.filter((p: any) => typeof p === 'string' && p.trim() !== '')
                 const individuals = rawParticipants.filter((p: string) => !p.includes(','))
-                const result = new Set<string>()
+                const resultSet = new Set<string>()
 
                 rawParticipants.forEach((p: string) => {
                     if (p.includes(',')) {
@@ -167,15 +203,15 @@ export class FirefliesService {
                         )
 
                         if (isList) {
-                            fragments.forEach((f: string) => result.add(f))
+                            fragments.forEach((f: string) => resultSet.add(f))
                         } else {
-                            result.add(p)
+                            resultSet.add(p)
                         }
                     } else {
-                        result.add(p)
+                        resultSet.add(p)
                     }
                 })
-                participants = Array.from(result)
+                participants = Array.from(resultSet)
             }
 
             // Parse meeting date
@@ -204,16 +240,25 @@ export class FirefliesService {
             }
 
             const transcriptUrl = transcript.transcript_url || null
-            const notes = null
+
+            // Handle notes (using overview or bullet_gist as a more detailed summary)
+            let notesText: string | null = null
+            if (transcript.summary) {
+                if (transcript.summary.overview) {
+                    notesText = transcript.summary.overview
+                } else if (transcript.summary.bullet_gist && Array.isArray(transcript.summary.bullet_gist)) {
+                    notesText = transcript.summary.bullet_gist.join('\n')
+                } else if (transcript.summary.gist) {
+                    notesText = transcript.summary.gist
+                } else if (transcript.summary.shorthand_bullet && Array.isArray(transcript.summary.shorthand_bullet)) {
+                    notesText = transcript.summary.shorthand_bullet.join('\n')
+                }
+            }
 
             // Create or Update MeetingNote
-            const existingNote = await prisma.meetingNote.findUnique({
-                where: { meetingId: fireHookLog.meetingId }
-            })
-
             const noteData = {
                 title: transcript.title || null,
-                notes: notes,
+                notes: notesText,
                 transcriptUrl: transcriptUrl,
                 summary: summaryText,
                 participants: participants,
@@ -221,38 +266,20 @@ export class FirefliesService {
                 meetingDate: meetingDate,
             }
 
-            let meetingNote
-            if (existingNote) {
-                meetingNote = await prisma.meetingNote.update({
-                    where: { id: existingNote.id },
-                    data: noteData
-                })
-            } else {
-                meetingNote = await prisma.meetingNote.create({
-                    data: {
-                        meetingId: fireHookLog.meetingId,
-                        ...noteData
-                    }
-                })
-            }
-
-            // Mark log as processed
-            await prisma.fireHookLog.update({
-                where: { id: logId },
-                data: {
-                    processed: true,
-                    errorMessage: null
+            const meetingNote = await prisma.meetingNote.upsert({
+                where: { meetingId: meetingId },
+                update: noteData,
+                create: {
+                    meetingId: meetingId,
+                    ...noteData
                 }
             })
 
-            console.log(`[FirefliesService] Successfully processed log ID: ${logId}`)
             return { success: true, meetingNoteId: meetingNote.id }
 
         } catch (error: any) {
-            console.error(`[FirefliesService] Error processing log ID ${logId}:`, error)
-            const errorMessage = error.message || 'Unknown error'
-            await this.logError(logId, errorMessage)
-            return { success: false, error: errorMessage }
+            console.error(`[FirefliesService] Error syncing meeting ${meetingId}:`, error)
+            return { success: false, error: error.message || 'Sync failed' }
         }
     }
 
