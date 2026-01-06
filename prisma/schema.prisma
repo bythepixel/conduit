@@ -28,10 +28,11 @@ model HubspotCompany {
   companyId      String         @unique
   name           String?
   btpAbbreviation String?       @unique
-  activeClient   Boolean        @default(false)
-  mappings       SlackMapping[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  activeClient    Boolean        @default(false)
+  mappings        SlackMapping[]
+  meetingNotes    MeetingNote[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 }
 
 model SlackMapping {
@@ -128,13 +129,16 @@ model MeetingNote {
   summary       String?   @db.Text
   participants  String[] // Array of participant names/emails
   duration      Int?      // Duration in minutes
-  meetingDate   DateTime?
-  metadata      Json?     // Additional metadata from Fireflies.ai
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  meetingDate      DateTime?
+  metadata         Json?     // Additional metadata from Fireflies.ai
+  hubspotCompanyId Int?
+  hubspotCompany   HubspotCompany? @relation(fields: [hubspotCompanyId], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([meetingId])
   @@index([meetingDate])
+  @@index([hubspotCompanyId])
 }
 
 model FireHookLog {

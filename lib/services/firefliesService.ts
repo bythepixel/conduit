@@ -266,12 +266,19 @@ export class FirefliesService {
                 meetingDate: meetingDate,
             }
 
+            // Look for a matching HubSpot company based on the first word of the title
+            const hubspotCompanyId = await this.findMatchingCompany(transcript.title)
+
             const meetingNote = await prisma.meetingNote.upsert({
                 where: { meetingId: meetingId },
-                update: noteData,
+                update: {
+                    ...noteData,
+                    hubspotCompanyId
+                },
                 create: {
                     meetingId: meetingId,
-                    ...noteData
+                    ...noteData,
+                    hubspotCompanyId
                 }
             })
 
@@ -295,5 +302,29 @@ export class FirefliesService {
         } catch (e) {
             console.error('[FirefliesService] Failed to log error to database:', e)
         }
+    }
+
+    /**
+     * Finds a matching HubSpot company based on the first word of the meeting title.
+     * Match is case-insensitive against company abbreviations.
+     */
+    private static async findMatchingCompany(title: string | null): Promise<number | null> {
+        if (!title) return null
+
+        // Get the first word, cleaned and case-insensitive
+        const firstWord = title.trim().split(/\s+/)[0]
+        if (!firstWord) return null
+
+        const company = await prisma.hubspotCompany.findFirst({
+            where: {
+                btpAbbreviation: {
+                    equals: firstWord,
+                    mode: 'insensitive'
+                }
+            },
+            select: { id: true }
+        })
+
+        return company?.id || null
     }
 }

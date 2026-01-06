@@ -15,6 +15,15 @@ export default async function handler(
     if (req.method === 'GET') {
         const notes = await prisma.meetingNote.findMany({
             orderBy: { meetingDate: 'desc' },
+            include: {
+                hubspotCompany: {
+                    select: {
+                        id: true,
+                        name: true,
+                        btpAbbreviation: true
+                    }
+                }
+            }
         })
         return res.status(200).json(notes)
     }
