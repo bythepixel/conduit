@@ -59,26 +59,26 @@ export async function createCompanyNote(
 
 /**
  * Formats meeting note data into a formatted note body for HubSpot
+ * Uses HTML tags: <p>, <br>, and <strong> for formatting
  */
 function formatMeetingNoteForHubSpot(meetingNote: any): string {
     const parts: string[] = []
     
     // Title
     if (meetingNote.title) {
-        parts.push(`**Meeting: ${meetingNote.title}**`)
-        parts.push('')
+        parts.push(`<p><strong>Meeting: ${meetingNote.title}</strong></p>`)
     }
     
     // Meeting Date
     if (meetingNote.meetingDate) {
         const date = new Date(meetingNote.meetingDate)
-        parts.push(`**Date:** ${date.toLocaleDateString('en-US', { 
+        parts.push(`<p><strong>Date:</strong> ${date.toLocaleDateString('en-US', { 
             year: 'numeric', 
             month: 'long', 
             day: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
-        })}`)
+        })}</p>`)
     }
     
     // Duration
@@ -88,35 +88,34 @@ function formatMeetingNoteForHubSpot(meetingNote: any): string {
         const durationStr = hours > 0 
             ? `${hours}h ${minutes}m` 
             : `${minutes}m`
-        parts.push(`**Duration:** ${durationStr}`)
+        parts.push(`<p><strong>Duration:</strong> ${durationStr}</p>`)
     }
     
     // Participants
     if (meetingNote.participants && meetingNote.participants.length > 0) {
-        parts.push(`**Participants:** ${meetingNote.participants.join(', ')}`)
+        parts.push(`<p><strong>Participants:</strong> ${meetingNote.participants.join(', ')}</p>`)
     }
     
     // Summary
     if (meetingNote.summary) {
-        parts.push('')
-        parts.push('**Summary:**')
-        parts.push(meetingNote.summary)
+        // Replace newlines with <br> tags in the summary
+        const formattedSummary = meetingNote.summary.replace(/\n/g, '<br>')
+        parts.push(`<p><strong>Summary:</strong><br>${formattedSummary}</p>`)
     }
     
     // Notes
     if (meetingNote.notes) {
-        parts.push('')
-        parts.push('**Notes:**')
-        parts.push(meetingNote.notes)
+        // Replace newlines with <br> tags in the notes
+        const formattedNotes = meetingNote.notes.replace(/\n/g, '<br>')
+        parts.push(`<p><strong>Notes:</strong><br>${formattedNotes}</p>`)
     }
     
     // Transcript URL
     if (meetingNote.transcriptUrl) {
-        parts.push('')
-        parts.push(`**Transcript:** ${meetingNote.transcriptUrl}`)
+        parts.push(`<p><strong>Transcript:</strong> ${meetingNote.transcriptUrl}</p>`)
     }
     
-    return parts.join('\n')
+    return parts.join('')
 }
 
 /**

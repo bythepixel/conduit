@@ -317,18 +317,24 @@ export class FirefliesService {
     /**
      * Finds a matching HubSpot company based on the first word of the meeting title.
      * Match is case-insensitive against company abbreviations.
+     * Strips common punctuation from the first word to improve matching.
      */
     static async findMatchingCompany(title: string | null): Promise<number | null> {
         if (!title) return null
 
-        // Get the first word, cleaned and case-insensitive
+        // Get the first word, cleaned of punctuation and whitespace
         const firstWord = title.trim().split(/\s+/)[0]
         if (!firstWord) return null
+
+        // Remove common punctuation characters that might be attached to the abbreviation
+        // e.g., "BTPM:" or "BTPM," should match "BTPM"
+        const cleanedWord = firstWord.replace(/[.,:;!?|()\[\]{}'"]+$/, '').trim()
+        if (!cleanedWord) return null
 
         const company = await prisma.hubspotCompany.findFirst({
             where: {
                 btpAbbreviation: {
-                    equals: firstWord,
+                    equals: cleanedWord,
                     mode: 'insensitive'
                 }
             },
