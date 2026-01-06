@@ -17,20 +17,15 @@ jest.mock('@hubspot/api-client', () => ({
   Client: jest.fn().mockImplementation(() => mockHubSpotClient),
 }))
 
-import * as hubspotService from '../../../lib/services/hubspotService'
+// Don't mock the service module - we'll mock the HubSpot client instead
 import { syncMeetingNoteToHubSpot } from '../../../lib/services/hubspotService'
-
-// Spy on createCompanyNote after importing
-const mockCreateCompanyNote = jest.spyOn(hubspotService, 'createCompanyNote')
 
 describe('hubspotService - syncMeetingNoteToHubSpot', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     jest.spyOn(Date, 'now').mockReturnValue(1234567890000)
-  })
-
-  afterEach(() => {
-    jest.restoreAllMocks()
+    // Mock the HubSpot client's create method
+    mockHubSpotClient.crm.objects.notes.basicApi.create.mockResolvedValue({ id: 'note-123' })
   })
 
   const mockMeetingNote = {
@@ -59,7 +54,7 @@ describe('hubspotService - syncMeetingNoteToHubSpot', () => {
       ...mockMeetingNote,
       syncedToHubspot: true,
     })
-    mockCreateCompanyNote.mockResolvedValue(undefined)
+    mockHubSpotClient.crm.objects.notes.basicApi.create.mockResolvedValue({ id: 'note-123' })
 
     await syncMeetingNoteToHubSpot(1)
 
@@ -70,9 +65,18 @@ describe('hubspotService - syncMeetingNoteToHubSpot', () => {
       },
     })
 
-    expect(mockCreateCompanyNote).toHaveBeenCalledWith(
-      'hubspot-company-123',
-      expect.stringContaining('<p><strong>Meeting: BTPM | Onboarding</strong></p>')
+    expect(mockHubSpotClient.crm.objects.notes.basicApi.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({
+          hs_note_body: expect.stringContaining('<p><strong>Meeting: BTPM | Onboarding</strong></p>'),
+        }),
+        associations: expect.arrayContaining([
+          expect.objectContaining({
+            to: { id: 'hubspot-company-123' },
+            types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 190 }],
+          }),
+        ]),
+      })
     )
 
     expect(mockPrisma.meetingNote.update).toHaveBeenCalledWith({
@@ -121,12 +125,12 @@ describe('hubspotService - syncMeetingNoteToHubSpot', () => {
       ...mockMeetingNote,
       syncedToHubspot: true,
     })
-    mockCreateCompanyNote.mockResolvedValue(undefined)
+    mockHubSpotClient.crm.objects.notes.basicApi.create.mockResolvedValue({ id: 'note-123' })
 
     await syncMeetingNoteToHubSpot(1)
 
-    const callArgs = mockCreateCompanyNote.mock.calls[0]
-    const noteBody = callArgs[1]
+    const callArgs = mockHubSpotClient.crm.objects.notes.basicApi.create.mock.calls[0]
+    const noteBody = callArgs[0]?.properties?.hs_note_body
 
     // Check HTML formatting
     expect(noteBody).toContain('<p><strong>Meeting: BTPM | Onboarding</strong></p>')
@@ -155,12 +159,12 @@ describe('hubspotService - syncMeetingNoteToHubSpot', () => {
       ...minimalNote,
       syncedToHubspot: true,
     })
-    mockCreateCompanyNote.mockResolvedValue(undefined)
+    mockHubSpotClient.crm.objects.notes.basicApi.create.mockResolvedValue({ id: 'note-123' })
 
     await syncMeetingNoteToHubSpot(1)
 
-    const callArgs = mockCreateCompanyNote.mock.calls[0]
-    const noteBody = callArgs[1]
+    const callArgs = mockHubSpotClient.crm.objects.notes.basicApi.create.mock.calls[0]
+    const noteBody = callArgs[0]?.properties?.hs_note_body
 
     expect(noteBody).toContain('<p><strong>Meeting: Test Meeting</strong></p>')
     expect(noteBody).not.toContain('<p><strong>Date:</strong>')
@@ -180,12 +184,12 @@ describe('hubspotService - syncMeetingNoteToHubSpot', () => {
       ...noteWithNewlines,
       syncedToHubspot: true,
     })
-    mockCreateCompanyNote.mockResolvedValue(undefined)
+    mockHubSpotClient.crm.objects.notes.basicApi.create.mockResolvedValue({ id: 'note-123' })
 
     await syncMeetingNoteToHubSpot(1)
 
-    const callArgs = mockCreateCompanyNote.mock.calls[0]
-    const noteBody = callArgs[1]
+    const callArgs = mockHubSpotClient.crm.objects.notes.basicApi.create.mock.calls[0]
+    const noteBody = callArgs[0]?.properties?.hs_note_body
 
     expect(noteBody).toContain('Line 1<br>Line 2<br>Line 3')
     expect(noteBody).toContain('Note 1<br>Note 2')
@@ -194,7 +198,7 @@ describe('hubspotService - syncMeetingNoteToHubSpot', () => {
   it('should handle errors from createCompanyNote', async () => {
     mockPrisma.meetingNote.findUnique.mockResolvedValue(mockMeetingNote)
     const error = new Error('HubSpot API Error')
-    mockCreateCompanyNote.mockRejectedValue(error)
+    mockHubSpotClient.crm.objects.notes.basicApi.create.mockRejectedValue(error)
 
     await expect(syncMeetingNoteToHubSpot(1)).rejects.toThrow('HubSpot API Error')
     expect(mockPrisma.meetingNote.update).not.toHaveBeenCalled()

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../lib/prisma'
 import { requireAuth } from '../../../lib/middleware/auth'
+import { validateMethod } from '../../../lib/utils/methodValidator'
 
 /**
  * Generates a 2-5 letter abbreviation from a company name

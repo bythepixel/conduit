@@ -1,9 +1,4 @@
-import handler from '../../../../pages/api/meeting-notes/index'
-import { createMockRequest, createMockResponse, createMockSession } from '../../utils/testHelpers'
-import { mockPrisma } from '../../utils/mocks'
-import { getServerSession } from 'next-auth/next'
-
-// Mock Prisma
+// Mock Prisma first
 jest.mock('../../../lib/prisma', () => ({
   prisma: require('../../utils/mocks').mockPrisma,
 }))
@@ -16,6 +11,11 @@ jest.mock('next-auth/next', () => ({
 jest.mock('../../../lib/config/auth', () => ({
   authOptions: {},
 }))
+
+import handler from '../../../pages/api/meeting-notes/index'
+import { createMockRequest, createMockResponse, createMockSession } from '../../utils/testHelpers'
+import { mockPrisma } from '../../utils/mocks'
+import { getServerSession } from 'next-auth/next'
 
 describe('/api/meeting-notes', () => {
   let req: any

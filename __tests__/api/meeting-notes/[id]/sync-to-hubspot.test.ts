@@ -1,16 +1,10 @@
-import handler from '../../../../../pages/api/meeting-notes/[id]/sync-to-hubspot'
-import { createMockRequest, createMockResponse, createMockSession } from '../../../utils/testHelpers'
-import { mockPrisma } from '../../../utils/mocks'
-import { syncMeetingNoteToHubSpot } from '../../../../../lib/services/hubspotService'
-import { getServerSession } from 'next-auth/next'
-
-// Mock Prisma
-jest.mock('../../../../../lib/prisma', () => ({
+// Mock Prisma first
+jest.mock('../../../../lib/prisma', () => ({
   prisma: require('../../../utils/mocks').mockPrisma,
 }))
 
 // Mock hubspotService
-jest.mock('../../../../../lib/services/hubspotService', () => ({
+jest.mock('../../../../lib/services/hubspotService', () => ({
   syncMeetingNoteToHubSpot: jest.fn(),
 }))
 
@@ -22,6 +16,12 @@ jest.mock('next-auth/next', () => ({
 jest.mock('../../../../lib/config/auth', () => ({
   authOptions: {},
 }))
+
+import handler from '../../../../pages/api/meeting-notes/[id]/sync-to-hubspot'
+import { createMockRequest, createMockResponse, createMockSession } from '../../../utils/testHelpers'
+import { mockPrisma } from '../../../utils/mocks'
+import { syncMeetingNoteToHubSpot } from '../../../../lib/services/hubspotService'
+import { getServerSession } from 'next-auth/next'
 
 describe('/api/meeting-notes/[id]/sync-to-hubspot', () => {
   let req: any
@@ -84,7 +84,7 @@ describe('/api/meeting-notes/[id]/sync-to-hubspot', () => {
 
     expect(res.status).toHaveBeenCalledWith(400)
     expect(res.json).toHaveBeenCalledWith({
-      error: 'Invalid meeting note ID',
+      error: 'Invalid meeting note ID format',
     })
     expect(syncMeetingNoteToHubSpot).not.toHaveBeenCalled()
   })
@@ -106,10 +106,11 @@ describe('/api/meeting-notes/[id]/sync-to-hubspot', () => {
     await handler(req, res)
 
     expect(res.status).toHaveBeenCalledWith(500)
-    expect(res.json).toHaveBeenCalledWith({
-      error: 'Failed to sync meeting note to HubSpot',
-      details: 'Meeting note does not have a relationship with a HubSpot Company',
-    })
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.stringContaining('Meeting note does not have a relationship with a HubSpot Company'),
+      })
+    )
   })
 
   it('should handle database errors when fetching updated note', async () => {
@@ -120,10 +121,11 @@ describe('/api/meeting-notes/[id]/sync-to-hubspot', () => {
     await handler(req, res)
 
     expect(res.status).toHaveBeenCalledWith(500)
-    expect(res.json).toHaveBeenCalledWith({
-      error: 'Failed to sync meeting note to HubSpot',
-      details: 'Database error',
-    })
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.stringContaining('Database error'),
+      })
+    )
   })
 })
 

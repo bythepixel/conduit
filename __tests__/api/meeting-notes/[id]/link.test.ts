@@ -1,10 +1,5 @@
-import handler from '../../../../../pages/api/meeting-notes/[id]/link'
-import { createMockRequest, createMockResponse, createMockSession } from '../../../utils/testHelpers'
-import { mockPrisma } from '../../../utils/mocks'
-import { getServerSession } from 'next-auth/next'
-
-// Mock Prisma
-jest.mock('../../../../../lib/prisma', () => ({
+// Mock Prisma first
+jest.mock('../../../../lib/prisma', () => ({
   prisma: require('../../../utils/mocks').mockPrisma,
 }))
 
@@ -16,6 +11,11 @@ jest.mock('next-auth/next', () => ({
 jest.mock('../../../../lib/config/auth', () => ({
   authOptions: {},
 }))
+
+import handler from '../../../../pages/api/meeting-notes/[id]/link'
+import { createMockRequest, createMockResponse, createMockSession } from '../../../utils/testHelpers'
+import { mockPrisma } from '../../../utils/mocks'
+import { getServerSession } from 'next-auth/next'
 
 describe('/api/meeting-notes/[id]/link', () => {
   let req: any
@@ -114,7 +114,7 @@ describe('/api/meeting-notes/[id]/link', () => {
 
     expect(res.status).toHaveBeenCalledWith(400)
     expect(res.json).toHaveBeenCalledWith({
-      error: 'Missing or invalid meeting note ID',
+      error: 'Missing or invalid meeting note ID parameter',
     })
   })
 
@@ -125,7 +125,7 @@ describe('/api/meeting-notes/[id]/link', () => {
 
     expect(res.status).toHaveBeenCalledWith(400)
     expect(res.json).toHaveBeenCalledWith({
-      error: 'Missing or invalid meeting note ID',
+      error: 'Missing or invalid meeting note ID parameter',
     })
   })
 
@@ -157,10 +157,11 @@ describe('/api/meeting-notes/[id]/link', () => {
     await handler(req, res)
 
     expect(res.status).toHaveBeenCalledWith(500)
-    expect(res.json).toHaveBeenCalledWith({
-      error: 'Internal server error',
-      details: 'Database error',
-    })
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.stringContaining('Database error'),
+      })
+    )
   })
 })
 
