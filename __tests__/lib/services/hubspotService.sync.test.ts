@@ -17,17 +17,11 @@ jest.mock('@hubspot/api-client', () => ({
   Client: jest.fn().mockImplementation(() => mockHubSpotClient),
 }))
 
-// Mock createCompanyNote before importing the service
-const mockCreateCompanyNote = jest.fn()
-jest.mock('../../../lib/services/hubspotService', () => {
-  const actual = jest.requireActual('../../../lib/services/hubspotService')
-  return {
-    ...actual,
-    createCompanyNote: mockCreateCompanyNote,
-  }
-})
-
+import * as hubspotService from '../../../lib/services/hubspotService'
 import { syncMeetingNoteToHubSpot } from '../../../lib/services/hubspotService'
+
+// Spy on createCompanyNote after importing
+const mockCreateCompanyNote = jest.spyOn(hubspotService, 'createCompanyNote')
 
 describe('hubspotService - syncMeetingNoteToHubSpot', () => {
   beforeEach(() => {

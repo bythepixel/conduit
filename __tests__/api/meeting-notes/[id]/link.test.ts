@@ -13,7 +13,7 @@ jest.mock('next-auth/next', () => ({
   getServerSession: jest.fn(),
 }))
 
-jest.mock('../../../../../lib/config/auth', () => ({
+jest.mock('../../../../lib/config/auth', () => ({
   authOptions: {},
 }))
 
