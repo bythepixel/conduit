@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../lib/prisma'
 import { requireAuth } from '../../../lib/middleware/auth'
 import { validateMethod } from '../../../lib/utils/methodValidator'
+import { handleError } from '../../../lib/utils/errorHandler'
 import { Client as HubSpotClient } from '@hubspot/api-client'
 import { getRequiredEnv } from '../../../lib/config/env'
 
@@ -182,29 +183,7 @@ export default async function handler(
         })
     } catch (error: any) {
         console.error('Error syncing companies from HubSpot:', error)
-        
-        const errorCode = error.code || error.statusCode || error.status
-        const errorMsg = error.message || error.body?.message || 'Unknown error'
-        
-        if (errorCode === 429 || 
-            errorMsg.toLowerCase().includes('rate limit') || 
-            errorMsg.toLowerCase().includes('too many requests')) {
-            return res.status(429).json({ 
-                error: `HubSpot API Rate Limit Error: ${errorMsg}. Please try again later.`,
-                details: {
-                    code: errorCode,
-                    message: errorMsg
-                }
-            })
-        }
-        
-        return res.status(500).json({ 
-            error: errorMsg || 'Failed to sync companies from HubSpot',
-            details: {
-                code: errorCode,
-                message: errorMsg
-            }
-        })
+        handleError(error, res)
     }
 }
 

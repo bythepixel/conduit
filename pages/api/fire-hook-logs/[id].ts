@@ -2,6 +2,8 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { requireAuth } from '../../../lib/middleware/auth'
 import { validateMethod } from '../../../lib/utils/methodValidator'
 import { prisma } from '../../../lib/prisma'
+import { parseIdParam } from '../../../lib/utils/requestHelpers'
+import { handleError } from '../../../lib/utils/errorHandler'
 
 export default async function handler(
     req: NextApiRequest,
@@ -12,16 +14,11 @@ export default async function handler(
 
     if (!validateMethod(req, res, ['DELETE'])) return
 
+    const { id } = req.query
+    const logId = parseIdParam(id, res, 'log ID')
+    if (logId === null) return
+
     try {
-        const { id } = req.query
-        const logId = parseInt(id as string, 10)
-
-        if (isNaN(logId)) {
-            return res.status(400).json({
-                error: 'Invalid log ID'
-            })
-        }
-
         await prisma.fireHookLog.delete({
             where: { id: logId }
         })
@@ -32,16 +29,6 @@ export default async function handler(
         })
     } catch (error: any) {
         console.error('[Delete Fire Hook Log] Error in handler:', error)
-
-        if (error.code === 'P2025') {
-            return res.status(404).json({
-                error: 'Fire hook log not found'
-            })
-        }
-
-        return res.status(500).json({
-            error: 'Failed to delete fire hook log',
-            details: error.message
-        })
+        handleError(error, res)
     }
 }

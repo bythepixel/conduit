@@ -3,7 +3,7 @@ import { prisma } from '../../../lib/prisma'
 import { requireAuth } from '../../../lib/middleware/auth'
 import { validateMethod } from '../../../lib/utils/methodValidator'
 import { handleError } from '../../../lib/utils/errorHandler'
-import { PRISMA_ERROR_CODES } from '../../../lib/constants'
+import { parseIdParam } from '../../../lib/utils/requestHelpers'
 
 export default async function handler(
     req: NextApiRequest,
@@ -15,11 +15,13 @@ export default async function handler(
     if (!validateMethod(req, res, ['DELETE', 'PUT'])) return
 
     const { id } = req.query
+    const promptId = parseIdParam(id, res, 'prompt ID')
+    if (promptId === null) return
 
     if (req.method === 'DELETE') {
         try {
             const prompt = await prisma.prompt.findUnique({
-                where: { id: Number(id) }
+                where: { id: promptId }
             })
 
             if (!prompt) {
@@ -32,13 +34,10 @@ export default async function handler(
             }
 
             await prisma.prompt.delete({
-                where: { id: Number(id) },
+                where: { id: promptId },
             })
             return res.status(204).end()
         } catch (e: any) {
-            if (e.code === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
-                return res.status(404).json({ error: "Prompt not found" })
-            }
             handleError(e, res)
         }
     }
@@ -56,14 +55,14 @@ export default async function handler(
                 await prisma.prompt.updateMany({
                     where: { 
                         isActive: true,
-                        id: { not: Number(id) }
+                        id: { not: promptId }
                     },
                     data: { isActive: false }
                 })
             }
 
             const prompt = await prisma.prompt.update({
-                where: { id: Number(id) },
+                where: { id: promptId },
                 data: {
                     name,
                     content,
@@ -72,9 +71,6 @@ export default async function handler(
             })
             return res.status(200).json(prompt)
         } catch (e: any) {
-            if (e.code === PRISMA_ERROR_CODES.RECORD_NOT_FOUND) {
-                return res.status(404).json({ error: "Prompt not found" })
-            }
             handleError(e, res)
         }
     }

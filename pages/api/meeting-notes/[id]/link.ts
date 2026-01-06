@@ -4,6 +4,7 @@ import { requireAuth } from '../../../../lib/middleware/auth'
 import { validateMethod } from '../../../../lib/utils/methodValidator'
 import { HUBSPOT_COMPANY_INCLUDE } from '../../../../lib/constants/selects'
 import { handleError } from '../../../../lib/utils/errorHandler'
+import { parseIdParam } from '../../../../lib/utils/requestHelpers'
 
 export default async function handler(
     req: NextApiRequest,
@@ -17,15 +18,10 @@ export default async function handler(
     const { id } = req.query
     const { hubspotCompanyId } = req.body
 
-    if (!id || typeof id !== 'string') {
-        return res.status(400).json({ error: 'Missing or invalid meeting note ID' })
-    }
+    const meetingNoteId = parseIdParam(id, res, 'meeting note ID')
+    if (meetingNoteId === null) return
 
     try {
-        const meetingNoteId = parseInt(id)
-        if (isNaN(meetingNoteId)) {
-            return res.status(400).json({ error: 'Invalid meeting note ID format' })
-        }
 
         const updatedNote = await prisma.meetingNote.update({
             where: { id: meetingNoteId },

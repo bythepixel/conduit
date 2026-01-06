@@ -3,6 +3,7 @@ import { prisma } from '../../../lib/prisma'
 import { requireAuth } from '../../../lib/middleware/auth'
 import { validateMethod } from '../../../lib/utils/methodValidator'
 import { handleError } from '../../../lib/utils/errorHandler'
+import { parseIdParam } from '../../../lib/utils/requestHelpers'
 
 export default async function handler(
     req: NextApiRequest,
@@ -14,12 +15,14 @@ export default async function handler(
     if (!validateMethod(req, res, ['DELETE', 'PUT'])) return
 
     const { id } = req.query
+    const channelId = parseIdParam(id, res, 'channel ID')
+    if (channelId === null) return
 
     if (req.method === 'DELETE') {
         try {
             // Check if channel is used in any mappings (through pivot table)
             const mappingCount = await prisma.mappingSlackChannel.count({
-                where: { slackChannelId: Number(id) }
+                where: { slackChannelId: channelId }
             })
 
             if (mappingCount > 0) {
@@ -29,7 +32,7 @@ export default async function handler(
             }
 
             await prisma.slackChannel.delete({
-                where: { id: Number(id) },
+                where: { id: channelId },
             })
             return res.status(204).end()
         } catch (e: any) {
@@ -38,17 +41,17 @@ export default async function handler(
     }
 
     if (req.method === 'PUT') {
-        const { channelId, name, isClient } = req.body
+        const { channelId: bodyChannelId, name, isClient } = req.body
 
-        if (!channelId) {
+        if (!bodyChannelId) {
             return res.status(400).json({ error: "channelId is required" })
         }
 
         try {
             const channel = await prisma.slackChannel.update({
-                where: { id: Number(id) },
+                where: { id: channelId },
                 data: {
-                    channelId,
+                    channelId: bodyChannelId,
                     name,
                     isClient: isClient !== undefined ? isClient : undefined,
                 },

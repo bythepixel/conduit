@@ -45,11 +45,17 @@ export async function createCompanyNote(
         const errorCode = err.code || err.statusCode || err.status
         const errorMsg = err.message || err.body?.message || 'Unknown error'
         
+        // Rate limit errors are handled by handleHubSpotRateLimitError in errorHandler
+        // Re-throw with a structured error that can be caught by the handler
         if (errorCode === 429 || 
             errorMsg.toLowerCase().includes('rate limit') || 
             errorMsg.toLowerCase().includes('too many requests')) {
             console.error(`[HubSpot API] Rate limit error: ${errorMsg}`, err)
-            throw new Error(`HubSpot API Rate Limit Error: ${errorMsg}. Will retry automatically.`)
+            const rateLimitError: any = new Error(`HubSpot API Rate Limit Error: ${errorMsg}`)
+            rateLimitError.code = 429
+            rateLimitError.statusCode = 429
+            rateLimitError.body = { message: errorMsg }
+            throw rateLimitError
         }
         
         console.error(`[HubSpot API] Error creating note:`, err)

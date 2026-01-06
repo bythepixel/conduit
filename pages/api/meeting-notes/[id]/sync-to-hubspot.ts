@@ -5,6 +5,7 @@ import { validateMethod } from '../../../../lib/utils/methodValidator'
 import { syncMeetingNoteToHubSpot } from '../../../../lib/services/hubspotService'
 import { HUBSPOT_COMPANY_INCLUDE } from '../../../../lib/constants/selects'
 import { handleError } from '../../../../lib/utils/errorHandler'
+import { parseIdParam } from '../../../../lib/utils/requestHelpers'
 
 export default async function handler(
     req: NextApiRequest,
@@ -15,13 +16,11 @@ export default async function handler(
 
     if (!validateMethod(req, res, ['POST'])) return
 
-    try {
-        const { id } = req.query
-        const meetingNoteId = parseInt(id as string, 10)
+    const { id } = req.query
+    const meetingNoteId = parseIdParam(id, res, 'meeting note ID')
+    if (meetingNoteId === null) return
 
-        if (isNaN(meetingNoteId)) {
-            return res.status(400).json({ error: 'Invalid meeting note ID' })
-        }
+    try {
 
         // Sync the meeting note to HubSpot
         await syncMeetingNoteToHubSpot(meetingNoteId)
