@@ -133,6 +133,7 @@ model MeetingNote {
   metadata         Json?     // Additional metadata from Fireflies.ai
   hubspotCompanyId Int?
   hubspotCompany   HubspotCompany? @relation(fields: [hubspotCompanyId], references: [id], onDelete: SetNull)
+  syncedToHubspot  Boolean  @default(false)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

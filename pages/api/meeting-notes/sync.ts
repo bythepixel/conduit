@@ -3,6 +3,7 @@ import { prisma } from '../../../lib/prisma'
 import { requireAuth } from '../../../lib/middleware/auth'
 import { validateMethod } from '../../../lib/utils/methodValidator'
 import { getEnv } from '../../../lib/config/env'
+import { FirefliesService } from '../../../lib/services/firefliesService'
 
 const FIREFLIES_GRAPHQL_URL = 'https://api.fireflies.ai/graphql'
 
@@ -188,11 +189,17 @@ export default async function handler(
                         // Only include metadata if we have data (Prisma requires undefined, not null)
                         // Metadata field doesn't exist in Fireflies schema, so we omit it
 
+                        // Look for a matching HubSpot company based on the first word of the title
+                        const hubspotCompanyId = await FirefliesService.findMatchingCompany(transcript.title)
+
                         if (existingNote) {
                             // Update existing note
                             await prisma.meetingNote.update({
                                 where: { id: existingNote.id },
-                                data: noteData
+                                data: {
+                                    ...noteData,
+                                    hubspotCompanyId
+                                }
                             })
                             results.updated++
                         } else {
@@ -201,7 +208,8 @@ export default async function handler(
                                 await prisma.meetingNote.create({
                                     data: {
                                         meetingId: meetingId.toString(),
-                                        ...noteData
+                                        ...noteData,
+                                        hubspotCompanyId
                                     }
                                 })
                                 results.created++

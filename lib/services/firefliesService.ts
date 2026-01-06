@@ -255,8 +255,11 @@ export class FirefliesService {
                 }
             }
 
+            // Look for a matching HubSpot company based on the first word of the title
+            const hubspotCompanyId = await this.findMatchingCompany(transcript.title)
+
             // Create or Update MeetingNote
-            const noteData = {
+            const noteData: any = {
                 title: transcript.title || null,
                 notes: notesText,
                 transcriptUrl: transcriptUrl,
@@ -264,23 +267,30 @@ export class FirefliesService {
                 participants: participants,
                 duration: transcript.duration ? Math.round(transcript.duration) : null,
                 meetingDate: meetingDate,
+                hubspotCompanyId: hubspotCompanyId ?? null,
             }
 
-            // Look for a matching HubSpot company based on the first word of the title
-            const hubspotCompanyId = await this.findMatchingCompany(transcript.title)
-
-            const meetingNote = await prisma.meetingNote.upsert({
-                where: { meetingId: meetingId },
-                update: {
-                    ...noteData,
-                    hubspotCompanyId
-                },
-                create: {
-                    meetingId: meetingId,
-                    ...noteData,
-                    hubspotCompanyId
-                }
+            // Check if meeting note already exists
+            const existingNote = await prisma.meetingNote.findUnique({
+                where: { meetingId: meetingId }
             })
+
+            let meetingNote
+            if (existingNote) {
+                // Update existing note
+                meetingNote = await prisma.meetingNote.update({
+                    where: { id: existingNote.id },
+                    data: noteData
+                })
+            } else {
+                // Create new note
+                meetingNote = await prisma.meetingNote.create({
+                    data: {
+                        meetingId: meetingId,
+                        ...noteData
+                    }
+                })
+            }
 
             return { success: true, meetingNoteId: meetingNote.id }
 
@@ -308,7 +318,7 @@ export class FirefliesService {
      * Finds a matching HubSpot company based on the first word of the meeting title.
      * Match is case-insensitive against company abbreviations.
      */
-    private static async findMatchingCompany(title: string | null): Promise<number | null> {
+    static async findMatchingCompany(title: string | null): Promise<number | null> {
         if (!title) return null
 
         // Get the first word, cleaned and case-insensitive

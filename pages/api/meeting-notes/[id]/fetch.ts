@@ -30,7 +30,16 @@ export default async function handler(
 
         if (result.success) {
             const updatedNote = await prisma.meetingNote.findUnique({
-                where: { meetingId: meetingId }
+                where: { meetingId: meetingId },
+                include: {
+                    hubspotCompany: {
+                        select: {
+                            id: true,
+                            name: true,
+                            btpAbbreviation: true
+                        }
+                    }
+                }
             })
             return res.status(200).json({
                 success: true,

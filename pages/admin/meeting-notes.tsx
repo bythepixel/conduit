@@ -23,6 +23,7 @@ type MeetingNote = {
         name: string
         btpAbbreviation?: string
     }
+    syncedToHubspot: boolean
     createdAt: string
     updatedAt: string
 }
@@ -43,6 +44,7 @@ export default function MeetingNotes() {
     const [syncing, setSyncing] = useState(false)
     const [fetchingNotes, setFetchingNotes] = useState<Set<string>>(new Set())
     const [linkingNote, setLinkingNote] = useState<number | null>(null)
+    const [syncingToHubspot, setSyncingToHubspot] = useState<Set<number>>(new Set())
     const [search, setSearch] = useState('')
     const [errorModal, setErrorModal] = useState<{ isOpen: boolean; message: string; type?: 'error' | 'success' | 'info' }>({
         isOpen: false,
@@ -119,6 +121,48 @@ export default function MeetingNotes() {
             })
         } finally {
             setLinkingNote(null)
+        }
+    }
+
+    const handleSyncToHubspot = async (noteId: number) => {
+        if (syncingToHubspot.has(noteId)) return
+
+        setSyncingToHubspot(prev => new Set(prev).add(noteId))
+        try {
+            const res = await fetch(`/api/meeting-notes/${noteId}/sync-to-hubspot`, {
+                method: 'POST'
+            })
+            const data = await res.json()
+
+            if (res.ok) {
+                // Update the local state
+                setNotes(prevNotes => prevNotes.map(n =>
+                    n.id === noteId ? { ...n, syncedToHubspot: true, hubspotCompany: data.note.hubspotCompany } : n
+                ))
+                setErrorModal({
+                    isOpen: true,
+                    message: 'Meeting note synced to HubSpot successfully!',
+                    type: 'success'
+                })
+            } else {
+                setErrorModal({
+                    isOpen: true,
+                    message: data.error || data.details || 'Failed to sync to HubSpot',
+                    type: 'error'
+                })
+            }
+        } catch (error: any) {
+            setErrorModal({
+                isOpen: true,
+                message: 'An error occurred while syncing: ' + error.message,
+                type: 'error'
+            })
+        } finally {
+            setSyncingToHubspot(prev => {
+                const newSet = new Set(prev)
+                newSet.delete(noteId)
+                return newSet
+            })
         }
     }
 
@@ -302,8 +346,8 @@ export default function MeetingNotes() {
                                     <h3 className="font-semibold text-slate-100 text-lg mb-1 line-clamp-2">
                                         {note.title || 'Untitled Meeting'}
                                     </h3>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <p className="text-slate-500 text-xs font-mono">{note.meetingId}</p>
+                                    <p className="text-slate-500 text-xs font-mono mb-2">{note.meetingId}</p>
+                                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                                         {note.hubspotCompany ? (
                                             <span className="px-2 py-0.5 bg-indigo-900/50 text-indigo-300 border border-indigo-700/50 rounded text-[10px] font-bold">
                                                 🏢 {note.hubspotCompany.name}
@@ -344,6 +388,23 @@ export default function MeetingNotes() {
                                             }
                                             return null
                                         })()}
+                                        {note.syncedToHubspot ? (
+                                            <span className="px-2 py-0.5 bg-green-900/50 text-green-300 border border-green-700/50 rounded text-[10px] font-bold flex items-center gap-1">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                </svg>
+                                                Synced
+                                            </span>
+                                        ) : (
+                                            <span className="px-2 py-0.5 bg-slate-700/50 text-slate-400 border border-slate-600/50 rounded text-[10px] font-bold flex items-center gap-1">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <circle cx="12" cy="12" r="10"></circle>
+                                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                                </svg>
+                                                Not Synced
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 
@@ -482,6 +543,36 @@ export default function MeetingNotes() {
                                             )}
                                         </button>
                                     )}
+                                    {note.hubspotCompany && !note.syncedToHubspot && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleSyncToHubspot(note.id)
+                                            }}
+                                            disabled={syncingToHubspot.has(note.id)}
+                                            className={`w-full px-4 py-2 rounded-lg font-semibold transition-all text-sm flex items-center justify-center gap-2 ${syncingToHubspot.has(note.id)
+                                                ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                                                : 'bg-purple-600 hover:bg-purple-700 text-white shadow-lg hover:shadow-purple-900/20'
+                                                }`}
+                                        >
+                                            {syncingToHubspot.has(note.id) ? (
+                                                <>
+                                                    <svg className="animate-spin h-4 w-4 text-purple-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    Syncing...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M5 12h14M12 5l7 7-7 7"></path>
+                                                    </svg>
+                                                    Sync to HubSpot
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => setSelectedNote(note)}
                                         className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-all text-sm flex items-center justify-center gap-2"
@@ -587,6 +678,9 @@ export default function MeetingNotes() {
                 note={selectedNote}
                 formatDuration={formatDuration}
                 formatDate={formatDate}
+                companies={companies}
+                onLinkCompany={handleLinkCompany}
+                linkingNote={linkingNote}
             />
         </div>
     )

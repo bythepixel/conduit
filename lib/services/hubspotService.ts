@@ -1,5 +1,6 @@
 import { Client as HubSpotClient } from '@hubspot/api-client'
 import { getRequiredEnv } from '../config/env'
+import { prisma } from '../prisma'
 
 let hubspotClient: HubSpotClient | null = null
 
@@ -54,5 +55,110 @@ export async function createCompanyNote(
         console.error(`[HubSpot API] Error creating note:`, err)
         throw new Error(`HubSpot API Error: ${errorMsg}`)
     }
+}
+
+/**
+ * Formats meeting note data into a formatted note body for HubSpot
+ */
+function formatMeetingNoteForHubSpot(meetingNote: any): string {
+    const parts: string[] = []
+    
+    // Title
+    if (meetingNote.title) {
+        parts.push(`**Meeting: ${meetingNote.title}**`)
+        parts.push('')
+    }
+    
+    // Meeting Date
+    if (meetingNote.meetingDate) {
+        const date = new Date(meetingNote.meetingDate)
+        parts.push(`**Date:** ${date.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })}`)
+    }
+    
+    // Duration
+    if (meetingNote.duration) {
+        const hours = Math.floor(meetingNote.duration / 60)
+        const minutes = meetingNote.duration % 60
+        const durationStr = hours > 0 
+            ? `${hours}h ${minutes}m` 
+            : `${minutes}m`
+        parts.push(`**Duration:** ${durationStr}`)
+    }
+    
+    // Participants
+    if (meetingNote.participants && meetingNote.participants.length > 0) {
+        parts.push(`**Participants:** ${meetingNote.participants.join(', ')}`)
+    }
+    
+    // Summary
+    if (meetingNote.summary) {
+        parts.push('')
+        parts.push('**Summary:**')
+        parts.push(meetingNote.summary)
+    }
+    
+    // Notes
+    if (meetingNote.notes) {
+        parts.push('')
+        parts.push('**Notes:**')
+        parts.push(meetingNote.notes)
+    }
+    
+    // Transcript URL
+    if (meetingNote.transcriptUrl) {
+        parts.push('')
+        parts.push(`**Transcript:** ${meetingNote.transcriptUrl}`)
+    }
+    
+    return parts.join('\n')
+}
+
+/**
+ * Syncs a meeting note to HubSpot
+ * Only works if the meeting note has a relationship with a HubSpot Company
+ */
+export async function syncMeetingNoteToHubSpot(meetingNoteId: number): Promise<void> {
+    // Fetch the meeting note with company relationship
+    const meetingNote = await prisma.meetingNote.findUnique({
+        where: { id: meetingNoteId },
+        include: {
+            hubspotCompany: true
+        }
+    })
+    
+    if (!meetingNote) {
+        throw new Error(`Meeting note with ID ${meetingNoteId} not found`)
+    }
+    
+    if (!meetingNote.hubspotCompany) {
+        throw new Error(`Meeting note does not have a relationship with a HubSpot Company`)
+    }
+    
+    if (!meetingNote.hubspotCompany.companyId) {
+        throw new Error(`HubSpot Company does not have a companyId`)
+    }
+    
+    // Format the meeting note data
+    const noteBody = formatMeetingNoteForHubSpot(meetingNote)
+    
+    // Create the note in HubSpot
+    await createCompanyNote(
+        meetingNote.hubspotCompany.companyId,
+        noteBody
+    )
+    
+    // Update the syncedToHubspot flag
+    await prisma.meetingNote.update({
+        where: { id: meetingNoteId },
+        data: { syncedToHubspot: true }
+    })
+    
+    console.log(`[HubSpot Service] Successfully synced meeting note ${meetingNoteId} to HubSpot`)
 }
 

@@ -11,8 +11,22 @@ type MeetingNote = {
     duration?: number
     meetingDate?: string
     metadata?: any
+    hubspotCompanyId?: number
+    hubspotCompany?: {
+        id: number
+        name: string
+        btpAbbreviation?: string
+    }
+    syncedToHubspot: boolean
     createdAt: string
     updatedAt: string
+}
+
+type HubspotCompany = {
+    id: number
+    companyId: string
+    name: string
+    btpAbbreviation: string | null
 }
 
 type MeetingNoteModalProps = {
@@ -21,6 +35,9 @@ type MeetingNoteModalProps = {
     note: MeetingNote | null
     formatDuration: (minutes?: number) => string
     formatDate: (dateString?: string) => string
+    companies?: HubspotCompany[]
+    onLinkCompany?: (noteId: number, companyId: number | null) => Promise<void>
+    linkingNote?: number | null
 }
 
 export default function MeetingNoteModal({ 
@@ -28,7 +45,10 @@ export default function MeetingNoteModal({
     onClose, 
     note, 
     formatDuration, 
-    formatDate 
+    formatDate,
+    companies = [],
+    onLinkCompany,
+    linkingNote = null
 }: MeetingNoteModalProps) {
     const modalRef = useRef<HTMLDivElement>(null)
 
@@ -49,6 +69,15 @@ export default function MeetingNoteModal({
         !p.toLowerCase().includes('bythepixel.com')
     )
 
+    const findSuggestedCompany = (title?: string) => {
+        if (!title || companies.length === 0) return null
+        const firstWord = title.trim().split(/\s+/)[0].toLowerCase()
+        if (!firstWord) return null
+        return companies.find(c => c.btpAbbreviation?.toLowerCase() === firstWord)
+    }
+
+    const suggestedCompany = !note.hubspotCompany ? findSuggestedCompany(note.title) : null
+
     return (
         <div 
             className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" 
@@ -65,7 +94,42 @@ export default function MeetingNoteModal({
                         <h2 className="text-2xl font-bold text-slate-100 mb-1">
                             {note.title || 'Untitled Meeting'}
                         </h2>
-                        <p className="text-slate-500 text-xs font-mono">{note.meetingId}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                            <p className="text-slate-500 text-xs font-mono">{note.meetingId}</p>
+                            {note.hubspotCompany ? (
+                                <span className="px-2 py-0.5 bg-indigo-900/50 text-indigo-300 border border-indigo-700/50 rounded text-xs font-bold">
+                                    🏢 {note.hubspotCompany.name}
+                                </span>
+                            ) : suggestedCompany && onLinkCompany ? (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-amber-500 italic">
+                                        Suggest: {suggestedCompany.name}
+                                    </span>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            onLinkCompany(note.id, suggestedCompany.id)
+                                        }}
+                                        disabled={linkingNote === note.id}
+                                        className="px-2 py-0.5 bg-amber-600/20 hover:bg-amber-600 text-amber-400 hover:text-white border border-amber-600/30 rounded text-xs font-bold transition-all flex items-center gap-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {linkingNote === note.id ? (
+                                            <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                        ) : (
+                                            <>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M5 12h14M12 5l7 7-7 7" />
+                                                </svg>
+                                                Link
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            ) : null}
+                        </div>
                     </div>
                     <button
                         onClick={onClose}
