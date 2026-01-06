@@ -1,11 +1,13 @@
 import { FirefliesService } from '../../../lib/services/firefliesService'
-import { mockPrisma } from '../../utils/mocks'
 import { getEnv } from '../../../lib/config/env'
 
 // Mock Prisma
 jest.mock('../../../lib/prisma', () => ({
-  prisma: mockPrisma,
+  prisma: require('../../utils/mocks').mockPrisma,
 }))
+
+// Import mockPrisma after jest.mock
+const { mockPrisma } = require('../../utils/mocks')
 
 // Mock config/env
 jest.mock('../../../lib/config/env', () => ({

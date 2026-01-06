@@ -5,7 +5,7 @@ import { getServerSession } from 'next-auth/next'
 
 // Mock Prisma
 jest.mock('../../../../../lib/prisma', () => ({
-  prisma: mockPrisma,
+  prisma: require('../../../utils/mocks').mockPrisma,
 }))
 
 // Mock next-auth

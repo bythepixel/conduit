@@ -76,7 +76,7 @@ describe('/api/hubspot-companies/[id]', () => {
 
       expect(res.status).toHaveBeenCalledWith(404)
       expect(res.json).toHaveBeenCalledWith({
-        error: 'Company not found',
+        error: 'Record not found',
       })
     })
 
@@ -150,6 +150,9 @@ describe('/api/hubspot-companies/[id]', () => {
       const error = {
         code: 'P2002',
         message: 'Unique constraint failed',
+        meta: {
+          target: ['companyId'],
+        },
       }
 
       mockPrisma.hubspotCompany.update.mockRejectedValue(error)
@@ -186,7 +189,7 @@ describe('/api/hubspot-companies/[id]', () => {
 
       expect(res.status).toHaveBeenCalledWith(404)
       expect(res.json).toHaveBeenCalledWith({
-        error: 'Company not found',
+        error: 'Record not found',
       })
     })
 

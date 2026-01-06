@@ -115,6 +115,9 @@ describe('/api/hubspot-companies', () => {
       const error = {
         code: 'P2002',
         message: 'Unique constraint failed',
+        meta: {
+          target: ['companyId'],
+        },
       }
 
       mockPrisma.hubspotCompany.create.mockRejectedValue(error)

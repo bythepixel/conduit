@@ -1,11 +1,9 @@
-import { syncMeetingNoteToHubSpot } from '../../../lib/services/hubspotService'
-import { createCompanyNote } from '../../../lib/services/hubspotService'
 import { mockPrisma, mockHubSpotClient } from '../../utils/mocks'
 import { getRequiredEnv } from '../../../lib/config/env'
 
 // Mock Prisma
 jest.mock('../../../lib/prisma', () => ({
-  prisma: mockPrisma,
+  prisma: require('../../utils/mocks').mockPrisma,
 }))
 
 // Mock the config/env module
@@ -19,14 +17,17 @@ jest.mock('@hubspot/api-client', () => ({
   Client: jest.fn().mockImplementation(() => mockHubSpotClient),
 }))
 
-// Mock createCompanyNote
+// Mock createCompanyNote before importing the service
+const mockCreateCompanyNote = jest.fn()
 jest.mock('../../../lib/services/hubspotService', () => {
   const actual = jest.requireActual('../../../lib/services/hubspotService')
   return {
     ...actual,
-    createCompanyNote: jest.fn(),
+    createCompanyNote: mockCreateCompanyNote,
   }
 })
+
+import { syncMeetingNoteToHubSpot } from '../../../lib/services/hubspotService'
 
 describe('hubspotService - syncMeetingNoteToHubSpot', () => {
   beforeEach(() => {
@@ -64,7 +65,7 @@ describe('hubspotService - syncMeetingNoteToHubSpot', () => {
       ...mockMeetingNote,
       syncedToHubspot: true,
     })
-    ;(createCompanyNote as jest.Mock).mockResolvedValue(undefined)
+    mockCreateCompanyNote.mockResolvedValue(undefined)
 
     await syncMeetingNoteToHubSpot(1)
 
@@ -75,7 +76,7 @@ describe('hubspotService - syncMeetingNoteToHubSpot', () => {
       },
     })
 
-    expect(createCompanyNote).toHaveBeenCalledWith(
+    expect(mockCreateCompanyNote).toHaveBeenCalledWith(
       'hubspot-company-123',
       expect.stringContaining('<p><strong>Meeting: BTPM | Onboarding</strong></p>')
     )
@@ -126,11 +127,11 @@ describe('hubspotService - syncMeetingNoteToHubSpot', () => {
       ...mockMeetingNote,
       syncedToHubspot: true,
     })
-    ;(createCompanyNote as jest.Mock).mockResolvedValue(undefined)
+    mockCreateCompanyNote.mockResolvedValue(undefined)
 
     await syncMeetingNoteToHubSpot(1)
 
-    const callArgs = (createCompanyNote as jest.Mock).mock.calls[0]
+    const callArgs = mockCreateCompanyNote.mock.calls[0]
     const noteBody = callArgs[1]
 
     // Check HTML formatting
@@ -160,11 +161,11 @@ describe('hubspotService - syncMeetingNoteToHubSpot', () => {
       ...minimalNote,
       syncedToHubspot: true,
     })
-    ;(createCompanyNote as jest.Mock).mockResolvedValue(undefined)
+    mockCreateCompanyNote.mockResolvedValue(undefined)
 
     await syncMeetingNoteToHubSpot(1)
 
-    const callArgs = (createCompanyNote as jest.Mock).mock.calls[0]
+    const callArgs = mockCreateCompanyNote.mock.calls[0]
     const noteBody = callArgs[1]
 
     expect(noteBody).toContain('<p><strong>Meeting: Test Meeting</strong></p>')
@@ -185,11 +186,11 @@ describe('hubspotService - syncMeetingNoteToHubSpot', () => {
       ...noteWithNewlines,
       syncedToHubspot: true,
     })
-    ;(createCompanyNote as jest.Mock).mockResolvedValue(undefined)
+    mockCreateCompanyNote.mockResolvedValue(undefined)
 
     await syncMeetingNoteToHubSpot(1)
 
-    const callArgs = (createCompanyNote as jest.Mock).mock.calls[0]
+    const callArgs = mockCreateCompanyNote.mock.calls[0]
     const noteBody = callArgs[1]
 
     expect(noteBody).toContain('Line 1<br>Line 2<br>Line 3')
@@ -199,7 +200,7 @@ describe('hubspotService - syncMeetingNoteToHubSpot', () => {
   it('should handle errors from createCompanyNote', async () => {
     mockPrisma.meetingNote.findUnique.mockResolvedValue(mockMeetingNote)
     const error = new Error('HubSpot API Error')
-    ;(createCompanyNote as jest.Mock).mockRejectedValue(error)
+    mockCreateCompanyNote.mockRejectedValue(error)
 
     await expect(syncMeetingNoteToHubSpot(1)).rejects.toThrow('HubSpot API Error')
     expect(mockPrisma.meetingNote.update).not.toHaveBeenCalled()

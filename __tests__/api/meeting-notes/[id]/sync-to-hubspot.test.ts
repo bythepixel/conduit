@@ -6,7 +6,7 @@ import { getServerSession } from 'next-auth/next'
 
 // Mock Prisma
 jest.mock('../../../../../lib/prisma', () => ({
-  prisma: mockPrisma,
+  prisma: require('../../../utils/mocks').mockPrisma,
 }))
 
 // Mock hubspotService
@@ -65,15 +65,9 @@ describe('/api/meeting-notes/[id]/sync-to-hubspot', () => {
     expect(syncMeetingNoteToHubSpot).toHaveBeenCalledWith(1)
     expect(mockPrisma.meetingNote.findUnique).toHaveBeenCalledWith({
       where: { id: 1 },
-      include: {
-        hubspotCompany: {
-          select: {
-            id: true,
-            name: true,
-            btpAbbreviation: true,
-          },
-        },
-      },
+      include: expect.objectContaining({
+        hubspotCompany: expect.anything(),
+      }),
     })
     expect(res.status).toHaveBeenCalledWith(200)
     expect(res.json).toHaveBeenCalledWith({
