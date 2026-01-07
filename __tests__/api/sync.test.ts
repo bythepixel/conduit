@@ -1,18 +1,18 @@
 import handler from '../../pages/api/sync'
 import { createMockRequest, createMockResponse } from '../utils/testHelpers'
 import { mockPrisma } from '../utils/mocks'
-import { fetchRecentMessages } from '../../lib/services/slackService'
-import { createCompanyNote } from '../../lib/services/hubspotService'
-import { generateSummary, generateFallbackSummary } from '../../lib/services/openaiService'
-import { getUserMap, formatMessagesForSummary } from '../../lib/services/userMappingService'
-import { getCadencesForToday } from '../../lib/services/cadenceService'
+import { fetchRecentMessages } from '../../lib/services/slack/slackService'
+import { createCompanyNote } from '../../lib/services/hubspot/hubspotService'
+import { generateSummary, generateFallbackSummary } from '../../lib/services/ai/openaiService'
+import { getUserMap, formatMessagesForSummary } from '../../lib/services/slack/userMappingService'
+import { getCadencesForToday } from '../../lib/services/core/cadenceService'
 
 // Mock all services
-jest.mock('../../lib/services/slackService')
-jest.mock('../../lib/services/hubspotService')
-jest.mock('../../lib/services/openaiService')
-jest.mock('../../lib/services/userMappingService')
-jest.mock('../../lib/services/cadenceService')
+jest.mock('../../lib/services/slack/slackService')
+jest.mock('../../lib/services/hubspot/hubspotService')
+jest.mock('../../lib/services/ai/openaiService')
+jest.mock('../../lib/services/slack/userMappingService')
+jest.mock('../../lib/services/core/cadenceService')
 jest.mock('../../lib/prisma', () => ({
   prisma: require('../utils/mocks').mockPrisma,
 }))

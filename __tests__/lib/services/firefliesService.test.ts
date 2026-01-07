@@ -1,4 +1,4 @@
-import { FirefliesService } from '../../../lib/services/firefliesService'
+import { FirefliesService } from '../../../lib/services/fireflies/firefliesService'
 import { getEnv } from '../../../lib/config/env'
 
 // Mock Prisma

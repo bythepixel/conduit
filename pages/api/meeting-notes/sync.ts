@@ -3,7 +3,7 @@ import { prisma } from '../../../lib/prisma'
 import { requireAuth } from '../../../lib/middleware/auth'
 import { validateMethod } from '../../../lib/utils/methodValidator'
 import { getEnv } from '../../../lib/config/env'
-import { FirefliesService } from '../../../lib/services/firefliesService'
+import { FirefliesService } from '../../../lib/services/fireflies/firefliesService'
 
 const FIREFLIES_GRAPHQL_URL = 'https://api.fireflies.ai/graphql'
 

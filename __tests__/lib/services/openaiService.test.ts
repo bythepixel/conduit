@@ -1,4 +1,4 @@
-import { generateSummary, generateFallbackSummary } from '../../../lib/services/openaiService'
+import { generateSummary, generateFallbackSummary } from '../../../lib/services/ai/openaiService'
 import { mockOpenAIClient } from '../../utils/mocks'
 import { getRequiredEnv } from '../../../lib/config/env'
 
@@ -276,6 +276,7 @@ describe('openaiService', () => {
     })
   })
 })
+
 
 
 

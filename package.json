@@ -19,6 +19,7 @@
     "@slack/web-api": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.0.0",
+    "lru-cache": "^10.4.3",
     "lucide-react": "^0.263.0",
     "next": "12.3.4",
     "next-auth": "^4.24.13",

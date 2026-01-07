@@ -1,4 +1,4 @@
-import { createCompanyNote } from '../../../lib/services/hubspotService'
+import { createCompanyNote } from '../../../lib/services/hubspot/hubspotService'
 import { mockHubSpotClient } from '../../utils/mocks'
 import { getRequiredEnv } from '../../../lib/config/env'
 
@@ -200,6 +200,7 @@ describe('hubspotService', () => {
     })
   })
 })
+
 
 
 

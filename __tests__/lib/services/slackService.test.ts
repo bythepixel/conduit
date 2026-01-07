@@ -1,4 +1,4 @@
-import { fetchChannelHistory, fetchRecentMessages } from '../../../lib/services/slackService'
+import { fetchChannelHistory, fetchRecentMessages } from '../../../lib/services/slack/slackService'
 import { mockSlackClient } from '../../utils/mocks'
 import { getRequiredEnv } from '../../../lib/config/env'
 
@@ -247,6 +247,7 @@ describe('slackService', () => {
     })
   })
 })
+
 
 
 

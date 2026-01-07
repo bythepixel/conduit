@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../lib/prisma'
-import { getUserMap } from '../../lib/services/userMappingService'
-import { getCadencesForToday } from '../../lib/services/cadenceService'
+import { getUserMap } from '../../lib/services/slack/userMappingService'
+import { getCadencesForToday } from '../../lib/services/core/cadenceService'
 import { 
     createCronLog, 
     updateCronLogMappingsFound, 
@@ -9,9 +9,9 @@ import {
     finalizeCronLog,
     updateCronLogFailed,
     createErrorCronLog
-} from '../../lib/services/cronLogService'
-import { fetchMappingsForSync } from '../../lib/services/mappingService'
-import { processMapping } from '../../lib/services/mappingSyncService'
+} from '../../lib/services/core/cronLogService'
+import { fetchMappingsForSync } from '../../lib/services/core/mappingService'
+import { processMapping } from '../../lib/services/core/mappingSyncService'
 
 // Force dynamic execution to prevent caching issues with Vercel cron jobs
 export const dynamic = 'force-dynamic'

@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { requireAuth } from '../../../../lib/middleware/auth'
 import { validateMethod } from '../../../../lib/utils/methodValidator'
-import { FirefliesService } from '../../../../lib/services/firefliesService'
+import { FirefliesService } from '../../../../lib/services/fireflies/firefliesService'
 import { parseIdParam } from '../../../../lib/utils/requestHelpers'
 import { handleError } from '../../../../lib/utils/errorHandler'
 

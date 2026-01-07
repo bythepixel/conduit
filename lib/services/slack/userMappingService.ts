@@ -1,4 +1,4 @@
-import { prisma } from '../prisma'
+import { prisma } from '../../prisma'
 
 /**
  * Creates a map of Slack user IDs to full names from the database
@@ -61,6 +61,7 @@ export function formatMessagesForSummary(
         })
         .join('\n')
 }
+
 
 
 

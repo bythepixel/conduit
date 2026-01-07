@@ -1,4 +1,4 @@
-import { getCadencesForToday } from '../../../lib/services/cadenceService'
+import { getCadencesForToday } from '../../../lib/services/core/cadenceService'
 
 // Mock Date to control what "today" is
 const mockDate = (dateString: string) => {

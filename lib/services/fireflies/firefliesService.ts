@@ -1,6 +1,6 @@
-import { prisma } from '../prisma'
-import { getEnv } from '../config/env'
-import { syncMeetingNoteToHubSpot } from './hubspotService'
+import { prisma } from '../../prisma'
+import { getEnv } from '../../config/env'
+import { syncMeetingNoteToHubSpot } from '../hubspot/hubspotService'
 
 const FIREFLIES_GRAPHQL_URL = 'https://api.fireflies.ai/graphql'
 

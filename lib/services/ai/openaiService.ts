@@ -1,5 +1,5 @@
 import { Configuration, OpenAIApi } from 'openai'
-import { getRequiredEnv } from '../config/env'
+import { getRequiredEnv } from '../../config/env'
 
 let openaiClient: OpenAIApi | null = null
 

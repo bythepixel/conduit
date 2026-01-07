@@ -1,4 +1,4 @@
-import { getUserMap, replaceUserIdsInText, formatMessagesForSummary } from '../../../lib/services/userMappingService'
+import { getUserMap, replaceUserIdsInText, formatMessagesForSummary } from '../../../lib/services/slack/userMappingService'
 import { mockPrisma } from '../../utils/mocks'
 
 // Mock must be defined before importing the module

@@ -1,8 +1,8 @@
-import { prisma } from '../prisma'
-import { fetchRecentMessages } from './slackService'
-import { createCompanyNote } from './hubspotService'
-import { generateSummary, generateFallbackSummary } from './openaiService'
-import { formatMessagesForSummary } from './userMappingService'
+import { prisma } from '../../prisma'
+import { fetchRecentMessages } from '../slack/slackService'
+import { createCompanyNote } from '../hubspot/hubspotService'
+import { generateSummary, generateFallbackSummary } from '../ai/openaiService'
+import { formatMessagesForSummary } from '../slack/userMappingService'
 
 export interface SyncResult {
     id: number

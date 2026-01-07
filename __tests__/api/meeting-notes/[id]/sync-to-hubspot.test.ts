@@ -4,7 +4,7 @@ jest.mock('../../../../lib/prisma', () => ({
 }))
 
 // Mock hubspotService
-jest.mock('../../../../lib/services/hubspotService', () => ({
+jest.mock('../../../../lib/services/hubspot/hubspotService', () => ({
   syncMeetingNoteToHubSpot: jest.fn(),
 }))
 
@@ -20,7 +20,7 @@ jest.mock('../../../../lib/config/auth', () => ({
 import handler from '../../../../pages/api/meeting-notes/[id]/sync-to-hubspot'
 import { createMockRequest, createMockResponse, createMockSession } from '../../../utils/testHelpers'
 import { mockPrisma } from '../../../utils/mocks'
-import { syncMeetingNoteToHubSpot } from '../../../../lib/services/hubspotService'
+import { syncMeetingNoteToHubSpot } from '../../../../lib/services/hubspot/hubspotService'
 import { getServerSession } from 'next-auth/next'
 
 describe('/api/meeting-notes/[id]/sync-to-hubspot', () => {

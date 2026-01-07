@@ -4,11 +4,18 @@ import { requireAuth } from '../../../lib/middleware/auth'
 import { validateMethod } from '../../../lib/utils/methodValidator'
 import { handleError, handlePrismaError } from '../../../lib/utils/errorHandler'
 import { PRISMA_ERROR_CODES } from '../../../lib/constants'
+import { defaultRateLimiter } from '../../../lib/middleware/rateLimit'
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
+    // Apply rate limiting
+    const rateLimitResult = await defaultRateLimiter(req, res)
+    if (rateLimitResult && !rateLimitResult.success) {
+        return // Rate limit exceeded, response already sent
+    }
+
     const session = await requireAuth(req, res)
     if (!session) return
 

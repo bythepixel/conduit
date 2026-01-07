@@ -11,7 +11,7 @@ import {
     updateCronLogFailed,
     createErrorCronLog,
     CronLogMappingStatus
-} from '../../../lib/services/cronLogService'
+} from '../../../lib/services/core/cronLogService'
 import { mockPrisma } from '../../utils/mocks'
 
 describe('cronLogService', () => {

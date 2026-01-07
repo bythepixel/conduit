@@ -5,11 +5,18 @@ import { validateMethod } from '../../../lib/utils/methodValidator'
 import { handleError } from '../../../lib/utils/errorHandler'
 import { hashPassword } from '../../../lib/utils/password'
 import { ERROR_MESSAGES } from '../../../lib/constants'
+import { strictRateLimiter } from '../../../lib/middleware/rateLimit'
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
+    // Apply strict rate limiting for user management endpoints
+    const rateLimitResult = await strictRateLimiter(req, res)
+    if (rateLimitResult && !rateLimitResult.success) {
+        return // Rate limit exceeded, response already sent
+    }
+
     const session = await requireAuth(req, res)
     if (!session) return
 

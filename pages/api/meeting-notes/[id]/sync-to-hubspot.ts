@@ -2,15 +2,22 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../../lib/prisma'
 import { requireAuth } from '../../../../lib/middleware/auth'
 import { validateMethod } from '../../../../lib/utils/methodValidator'
-import { syncMeetingNoteToHubSpot } from '../../../../lib/services/hubspotService'
+import { syncMeetingNoteToHubSpot } from '../../../../lib/services/hubspot/hubspotService'
 import { HUBSPOT_COMPANY_INCLUDE } from '../../../../lib/constants/selects'
 import { handleError } from '../../../../lib/utils/errorHandler'
 import { parseIdParam } from '../../../../lib/utils/requestHelpers'
+import { strictRateLimiter } from '../../../../lib/middleware/rateLimit'
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
+    // Apply strict rate limiting for sync operations
+    const rateLimitResult = await strictRateLimiter(req, res)
+    if (rateLimitResult && !rateLimitResult.success) {
+        return // Rate limit exceeded, response already sent
+    }
+
     const session = await requireAuth(req, res)
     if (!session) return
 

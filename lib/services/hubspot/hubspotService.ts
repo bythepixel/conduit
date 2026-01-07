@@ -1,6 +1,6 @@
 import { Client as HubSpotClient } from '@hubspot/api-client'
-import { getRequiredEnv } from '../config/env'
-import { prisma } from '../prisma'
+import { getRequiredEnv } from '../../config/env'
+import { prisma } from '../../prisma'
 
 let hubspotClient: HubSpotClient | null = null
 

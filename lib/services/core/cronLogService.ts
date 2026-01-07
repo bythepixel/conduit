@@ -1,4 +1,4 @@
-import { prisma } from '../prisma'
+import { prisma } from '../../prisma'
 import { CadenceFilterResult } from './cadenceService'
 
 export interface CronLogMappingStatus {
@@ -180,6 +180,7 @@ export async function createErrorCronLog(
         return null
     }
 }
+
 
 
 

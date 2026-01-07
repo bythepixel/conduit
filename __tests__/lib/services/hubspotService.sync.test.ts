@@ -18,7 +18,7 @@ jest.mock('@hubspot/api-client', () => ({
 }))
 
 // Don't mock the service module - we'll mock the HubSpot client instead
-import { syncMeetingNoteToHubSpot } from '../../../lib/services/hubspotService'
+import { syncMeetingNoteToHubSpot } from '../../../lib/services/hubspot/hubspotService'
 
 describe('hubspotService - syncMeetingNoteToHubSpot', () => {
   beforeEach(() => {

@@ -1,5 +1,5 @@
 import { WebClient } from '@slack/web-api'
-import { getRequiredEnv } from '../config/env'
+import { getRequiredEnv } from '../../config/env'
 
 let slackClient: WebClient | null = null
 

@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../../lib/prisma'
 import { requireAuth } from '../../../../lib/middleware/auth'
 import { validateMethod } from '../../../../lib/utils/methodValidator'
-import { FirefliesService } from '../../../../lib/services/firefliesService'
+import { FirefliesService } from '../../../../lib/services/fireflies/firefliesService'
 import { HUBSPOT_COMPANY_INCLUDE } from '../../../../lib/constants/selects'
 import { handleError } from '../../../../lib/utils/errorHandler'
 

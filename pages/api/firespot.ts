@@ -3,7 +3,9 @@ import { validateMethod } from '../../lib/utils/methodValidator'
 import { prisma } from '../../lib/prisma'
 import { getEnv } from '../../lib/config/env'
 import crypto from 'crypto'
-import { FirefliesService } from '../../lib/services/firefliesService'
+import { FirefliesService } from '../../lib/services/fireflies/firefliesService'
+import { lenientRateLimiter } from '../../lib/middleware/rateLimit'
+import { corsMiddleware } from '../../lib/middleware/cors'
 
 // Disable body parsing to get raw body for HMAC verification
 export const config = {
@@ -86,7 +88,18 @@ export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
+    // Handle CORS (webhooks may come from external sources)
+    if (corsMiddleware(req, res)) {
+        return // CORS handled (OPTIONS request or origin blocked)
+    }
+
     if (!validateMethod(req, res, ['POST'])) return
+
+    // Apply rate limiting for webhook endpoint (more lenient for webhooks)
+    const rateLimitResult = await lenientRateLimiter(req, res)
+    if (rateLimitResult && !rateLimitResult.success) {
+        return // Rate limit exceeded, response already sent
+    }
 
     try {
         // Read raw body for HMAC verification

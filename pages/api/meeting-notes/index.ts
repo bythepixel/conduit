@@ -3,11 +3,18 @@ import { prisma } from '../../../lib/prisma'
 import { requireAuth } from '../../../lib/middleware/auth'
 import { validateMethod } from '../../../lib/utils/methodValidator'
 import { HUBSPOT_COMPANY_INCLUDE } from '../../../lib/constants/selects'
+import { lenientRateLimiter } from '../../../lib/middleware/rateLimit'
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
+    // Apply rate limiting (lenient for read-only endpoint)
+    const rateLimitResult = await lenientRateLimiter(req, res)
+    if (rateLimitResult && !rateLimitResult.success) {
+        return // Rate limit exceeded, response already sent
+    }
+
     const session = await requireAuth(req, res)
     if (!session) return
 
