@@ -1,5 +1,6 @@
 import { prisma } from '../prisma'
 import { getEnv } from '../config/env'
+import { syncMeetingNoteToHubSpot } from './hubspotService'
 
 const FIREFLIES_GRAPHQL_URL = 'https://api.fireflies.ai/graphql'
 
@@ -84,6 +85,7 @@ export class FirefliesService {
                         id
                         title
                         transcript_url
+                        notes
                         summary {
                             action_items
                             outline
@@ -140,6 +142,7 @@ export class FirefliesService {
                             id
                             title
                             transcript_url
+                            notes
                             summary {
                                 action_items
                                 outline
@@ -241,9 +244,13 @@ export class FirefliesService {
 
             const transcriptUrl = transcript.transcript_url || null
 
-            // Handle notes (using overview or bullet_gist as a more detailed summary)
+            // Handle notes - prefer the notes field from API, fallback to summary fields
             let notesText: string | null = null
-            if (transcript.summary) {
+            if (transcript.notes) {
+                // Use the notes field directly from the API
+                notesText = transcript.notes
+            } else if (transcript.summary) {
+                // Fallback to summary fields if notes field is not available
                 if (transcript.summary.overview) {
                     notesText = transcript.summary.overview
                 } else if (transcript.summary.bullet_gist && Array.isArray(transcript.summary.bullet_gist)) {
@@ -292,6 +299,20 @@ export class FirefliesService {
                 })
             }
 
+            // Auto-sync to HubSpot if:
+            // 1. Meeting note has a HubSpot company relationship (check the actual meeting note's hubspotCompanyId)
+            // 2. All participants are internal (have bythepixel.com email addresses)
+            if (meetingNote.hubspotCompanyId && this.isInternalMeeting(participants)) {
+                try {
+                    console.log(`[FirefliesService] Auto-syncing internal meeting ${meetingId} to HubSpot`)
+                    await syncMeetingNoteToHubSpot(meetingNote.id)
+                    console.log(`[FirefliesService] Successfully auto-synced meeting ${meetingId} to HubSpot`)
+                } catch (syncError: any) {
+                    // Log error but don't fail the entire process
+                    console.error(`[FirefliesService] Failed to auto-sync meeting ${meetingId} to HubSpot:`, syncError.message)
+                }
+            }
+
             return { success: true, meetingNoteId: meetingNote.id }
 
         } catch (error: any) {
@@ -312,6 +333,37 @@ export class FirefliesService {
         } catch (e) {
             console.error('[FirefliesService] Failed to log error to database:', e)
         }
+    }
+
+    /**
+     * Checks if a meeting is internal (all participants have bythepixel.com email addresses).
+     * Returns true if all participants are internal, false otherwise.
+     * If there are no participants, returns false.
+     * A participant is considered internal if they have a bythepixel.com email address.
+     */
+    static isInternalMeeting(participants: string[]): boolean {
+        if (!participants || participants.length === 0) {
+            return false
+        }
+
+        // Check if all participants have bythepixel.com email addresses
+        return participants.every(participant => {
+            // Participant can be a name, email, or combination (e.g., "John Doe <john@bythepixel.com>")
+            // Extract email addresses from the participant string
+            const emailRegex = /[\w.-]+@([\w.-]+)/gi
+            const matches = participant.match(emailRegex)
+            
+            // If no email found, participant is not internal (can't verify)
+            if (!matches || matches.length === 0) {
+                return false
+            }
+            
+            // All emails must be from bythepixel.com domain
+            return matches.every(email => {
+                const domain = email.split('@')[1]?.toLowerCase()
+                return domain === 'bythepixel.com'
+            })
+        })
     }
 
     /**

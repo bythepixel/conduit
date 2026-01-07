@@ -124,6 +124,65 @@ describe('FirefliesService', () => {
     })
   })
 
+  describe('isInternalMeeting', () => {
+    it('should return true when all participants have bythepixel.com emails', () => {
+      const participants = [
+        'john@bythepixel.com',
+        'jane@bythepixel.com',
+        'bob@bythepixel.com'
+      ]
+      expect(FirefliesService.isInternalMeeting(participants)).toBe(true)
+    })
+
+    it('should return true when participants have formatted email addresses', () => {
+      const participants = [
+        'John Doe <john@bythepixel.com>',
+        'Jane Smith <jane@bythepixel.com>'
+      ]
+      expect(FirefliesService.isInternalMeeting(participants)).toBe(true)
+    })
+
+    it('should return false when any participant has external email', () => {
+      const participants = [
+        'john@bythepixel.com',
+        'external@example.com'
+      ]
+      expect(FirefliesService.isInternalMeeting(participants)).toBe(false)
+    })
+
+    it('should return false when any participant has no email', () => {
+      const participants = [
+        'john@bythepixel.com',
+        'John Doe' // No email address
+      ]
+      expect(FirefliesService.isInternalMeeting(participants)).toBe(false)
+    })
+
+    it('should return false when participants array is empty', () => {
+      expect(FirefliesService.isInternalMeeting([])).toBe(false)
+    })
+
+    it('should return false when participants is null or undefined', () => {
+      expect(FirefliesService.isInternalMeeting(null as any)).toBe(false)
+      expect(FirefliesService.isInternalMeeting(undefined as any)).toBe(false)
+    })
+
+    it('should handle case-insensitive domain matching', () => {
+      const participants = [
+        'john@BYTHEPIXEL.COM',
+        'jane@ByThePixel.com'
+      ]
+      expect(FirefliesService.isInternalMeeting(participants)).toBe(true)
+    })
+
+    it('should return false when participant has multiple emails and one is external', () => {
+      const participants = [
+        'john@bythepixel.com, john@external.com'
+      ]
+      expect(FirefliesService.isInternalMeeting(participants)).toBe(false)
+    })
+  })
+
   describe('processFireHookLog', () => {
     const mockFireHookLog = {
       id: 1,
