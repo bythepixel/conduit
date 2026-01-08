@@ -162,3 +162,70 @@ model FireHookLog {
   @@index([eventType])
   @@index([clientReferenceId])
 }
+
+model HarvestInvoice {
+  id                Int       @id @default(autoincrement())
+  harvestId         String    @unique // Harvest API invoice ID
+  clientId          String?   // Harvest client ID
+  clientName        String?   // Client name from Harvest
+  number            String?   // Invoice number
+  purchaseOrder     String?   // Purchase order number
+  amount            Decimal?  @db.Decimal(10, 2) // Total amount
+  dueAmount         Decimal?  @db.Decimal(10, 2) // Amount due
+  tax               Decimal?  @db.Decimal(10, 2) // Tax amount
+  taxAmount         Decimal?  @db.Decimal(10, 2) // Tax amount (alternative field)
+  discount          Decimal?  @db.Decimal(10, 2) // Discount amount
+  discountAmount    Decimal?  @db.Decimal(10, 2) // Discount amount (alternative field)
+  subject           String?   // Invoice subject
+  notes             String?   @db.Text // Invoice notes
+  currency          String?   // Currency code
+  state             String?   // Invoice state: draft, open, paid, closed
+  issueDate         DateTime? // Issue date
+  dueDate           DateTime? // Due date
+  paidDate          DateTime? // Paid date
+  paymentTerm       String?   // Payment term
+  metadata          Json?     // Additional metadata from Harvest API
+  cronLogs          HarvestInvoiceCronLog[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([harvestId])
+  @@index([clientId])
+  @@index([state])
+  @@index([issueDate])
+  @@index([dueDate])
+}
+
+model HarvestInvoiceCronLog {
+  id               Int              @id @default(autoincrement())
+  startedAt        DateTime         @default(now())
+  completedAt      DateTime?
+  status           String           // 'running', 'completed', 'failed'
+  invoicesFound    Int              @default(0) // Number of invoices found
+  invoicesCreated  Int              @default(0) // Number of invoices created
+  invoicesUpdated  Int              @default(0) // Number of invoices updated
+  invoicesFailed   Int              @default(0) // Number of invoices that failed
+  errorMessage     String?          // Error message if the cron run failed
+  errors           String[]         // Array of error messages
+  invoiceLogs      HarvestInvoiceCronLogInvoice[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([startedAt])
+  @@index([status])
+}
+
+model HarvestInvoiceCronLogInvoice {
+  id                Int                      @id @default(autoincrement())
+  cronLogId         Int
+  cronLog           HarvestInvoiceCronLog     @relation(fields: [cronLogId], references: [id], onDelete: Cascade)
+  invoiceId         Int
+  invoice           HarvestInvoice            @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  status            String                   // 'success', 'failed', 'skipped'
+  errorMessage      String?                  // Error message if failed
+  createdAt         DateTime                 @default(now())
+
+  @@unique([cronLogId, invoiceId])
+  @@index([cronLogId])
+  @@index([invoiceId])
+}

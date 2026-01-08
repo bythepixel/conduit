@@ -7,6 +7,10 @@
         {
             "path": "/api/sync-data",
             "schedule": "0 3 * * *"
+        },
+        {
+            "path": "/api/harvest-invoices/sync",
+            "schedule": "0 23 * * *"
         }
     ],
     "buildCommand": "npx prisma generate && npm run build",

@@ -15,13 +15,16 @@ export default function Header({ action }: HeaderProps) {
     const [navOpen, setNavOpen] = useState(false)
     const [slackyHubOpen, setSlackyHubOpen] = useState(false)
     const [fireSpotOpen, setFireSpotOpen] = useState(false)
+    const [hubvestOpen, setHubvestOpen] = useState(false)
     const [mobileSlackyHubOpen, setMobileSlackyHubOpen] = useState(false)
     const [mobileFireSpotOpen, setMobileFireSpotOpen] = useState(false)
+    const [mobileHubvestOpen, setMobileHubvestOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
     const navRef = useRef<HTMLDivElement>(null)
     const hamburgerRef = useRef<HTMLButtonElement>(null)
     const slackyHubRef = useRef<HTMLDivElement>(null)
     const fireSpotRef = useRef<HTMLDivElement>(null)
+    const hubvestRef = useRef<HTMLDivElement>(null)
 
     const isActive = (path: string) => router.pathname === path
 
@@ -37,6 +40,11 @@ export default function Header({ action }: HeaderProps) {
     // Check if FireSpot child is active
     const isFireSpotActive = () => {
         return isActive('/admin/meeting-notes') || isActive('/admin/hubspot-companies') || isActive('/admin/fire-hook-logs')
+    }
+
+    // Check if Hubvest child is active
+    const isHubvestActive = () => {
+        return isActive('/admin/harvest-invoices') || isActive('/admin/harvest-invoice-cron-logs')
     }
 
     // Close menus when clicking outside
@@ -61,16 +69,19 @@ export default function Header({ action }: HeaderProps) {
             if (fireSpotRef.current && !fireSpotRef.current.contains(target)) {
                 setFireSpotOpen(false)
             }
+            if (hubvestRef.current && !hubvestRef.current.contains(target)) {
+                setHubvestOpen(false)
+            }
         }
 
-        if (menuOpen || navOpen || slackyHubOpen || fireSpotOpen) {
+        if (menuOpen || navOpen || slackyHubOpen || fireSpotOpen || hubvestOpen) {
             document.addEventListener('mousedown', handleClickOutside)
         }
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside)
         }
-    }, [menuOpen, navOpen, slackyHubOpen, fireSpotOpen])
+    }, [menuOpen, navOpen, slackyHubOpen, fireSpotOpen, hubvestOpen])
 
     // Close mobile nav when route changes
     useEffect(() => {
@@ -231,6 +242,56 @@ export default function Header({ action }: HeaderProps) {
                                                 : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
                                         }`}>
                                             Fire Hook Logs
+                                        </a>
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Hubvest Dropdown */}
+                        <div className="relative" ref={hubvestRef}>
+                            <button
+                                onClick={() => setHubvestOpen(!hubvestOpen)}
+                                className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-1 ${
+                                    isHubvestActive()
+                                        ? 'bg-slate-600 text-indigo-400 shadow-sm'
+                                        : 'text-slate-300 hover:text-slate-100 hover:bg-slate-600/50'
+                                }`}
+                            >
+                                Hubvest
+                                <svg 
+                                    xmlns="http://www.w3.org/2000/svg" 
+                                    width="14" 
+                                    height="14" 
+                                    viewBox="0 0 24 24" 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    strokeWidth="2" 
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round"
+                                    className={`transition-transform ${hubvestOpen ? 'rotate-180' : ''}`}
+                                >
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </button>
+                            {hubvestOpen && (
+                                <div className="absolute top-full left-0 mt-1 w-48 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden z-50">
+                                    <Link href="/admin/harvest-invoices">
+                                        <a className={`block px-4 py-2 text-sm transition-colors ${
+                                            isActive('/admin/harvest-invoices')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                        }`}>
+                                            Harvest Invoices
+                                        </a>
+                                    </Link>
+                                    <Link href="/admin/harvest-invoice-cron-logs">
+                                        <a className={`block px-4 py-2 text-sm transition-colors ${
+                                            isActive('/admin/harvest-invoice-cron-logs')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                        }`}>
+                                            Cron Logs
                                         </a>
                                     </Link>
                                 </div>
@@ -448,6 +509,56 @@ export default function Header({ action }: HeaderProps) {
                                                     : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
                                             }`}>
                                                 Fire Hook Logs
+                                            </a>
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Hubvest Dropdown - Mobile */}
+                            <div>
+                                <button
+                                    onClick={() => setMobileHubvestOpen(!mobileHubvestOpen)}
+                                    className={`w-full px-4 py-3 rounded-lg text-sm font-semibold transition-all flex items-center justify-between ${
+                                        isHubvestActive()
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                    }`}
+                                >
+                                    Hubvest
+                                    <svg 
+                                        xmlns="http://www.w3.org/2000/svg" 
+                                        width="16" 
+                                        height="16" 
+                                        viewBox="0 0 24 24" 
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        strokeWidth="2" 
+                                        strokeLinecap="round" 
+                                        strokeLinejoin="round"
+                                        className={`transition-transform ${mobileHubvestOpen ? 'rotate-180' : ''}`}
+                                    >
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </button>
+                                {mobileHubvestOpen && (
+                                    <div className="pl-4 mt-1 space-y-1">
+                                        <Link href="/admin/harvest-invoices">
+                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                                isActive('/admin/harvest-invoices')
+                                                    ? 'bg-slate-700 text-indigo-400'
+                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                            }`}>
+                                                Harvest Invoices
+                                            </a>
+                                        </Link>
+                                        <Link href="/admin/harvest-invoice-cron-logs">
+                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                                isActive('/admin/harvest-invoice-cron-logs')
+                                                    ? 'bg-slate-700 text-indigo-400'
+                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                            }`}>
+                                                Cron Logs
                                             </a>
                                         </Link>
                                     </div>
