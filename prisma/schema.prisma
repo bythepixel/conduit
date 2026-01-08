@@ -31,6 +31,7 @@ model HubspotCompany {
   activeClient    Boolean        @default(false)
   mappings        SlackMapping[]
   meetingNotes    MeetingNote[]
+  harvestCompanyMappings HarvestCompanyMapping[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 }
@@ -168,6 +169,8 @@ model HarvestInvoice {
   harvestId         String    @unique // Harvest API invoice ID
   clientId          String?   // Harvest client ID
   clientName        String?   // Client name from Harvest
+  harvestCompanyId  Int?      // Reference to HarvestCompany
+  harvestCompany    HarvestCompany? @relation(fields: [harvestCompanyId], references: [id], onDelete: SetNull)
   number            String?   // Invoice number
   purchaseOrder     String?   // Purchase order number
   amount            Decimal?  @db.Decimal(10, 2) // Total amount
@@ -185,31 +188,32 @@ model HarvestInvoice {
   paidDate          DateTime? // Paid date
   paymentTerm       String?   // Payment term
   metadata          Json?     // Additional metadata from Harvest API
-  cronLogs          HarvestInvoiceCronLog[]
+  cronLogInvoiceLogs HarvestInvoiceCronLogInvoice[]
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
   @@index([harvestId])
   @@index([clientId])
+  @@index([harvestCompanyId])
   @@index([state])
   @@index([issueDate])
   @@index([dueDate])
 }
 
 model HarvestInvoiceCronLog {
-  id               Int              @id @default(autoincrement())
-  startedAt        DateTime         @default(now())
+  id               Int                              @id @default(autoincrement())
+  startedAt        DateTime                         @default(now())
   completedAt      DateTime?
-  status           String           // 'running', 'completed', 'failed'
-  invoicesFound    Int              @default(0) // Number of invoices found
-  invoicesCreated  Int              @default(0) // Number of invoices created
-  invoicesUpdated  Int              @default(0) // Number of invoices updated
-  invoicesFailed   Int              @default(0) // Number of invoices that failed
-  errorMessage     String?          // Error message if the cron run failed
-  errors           String[]         // Array of error messages
+  status           String                           // 'running', 'completed', 'failed'
+  invoicesFound    Int                              @default(0) // Number of invoices found
+  invoicesCreated  Int                              @default(0) // Number of invoices created
+  invoicesUpdated  Int                              @default(0) // Number of invoices updated
+  invoicesFailed   Int                              @default(0) // Number of invoices that failed
+  errorMessage     String?                          // Error message if the cron run failed
+  errors           String[]                         // Array of error messages
   invoiceLogs      HarvestInvoiceCronLogInvoice[]
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  createdAt        DateTime                         @default(now())
+  updatedAt        DateTime                         @updatedAt
 
   @@index([startedAt])
   @@index([status])
@@ -228,4 +232,32 @@ model HarvestInvoiceCronLogInvoice {
   @@unique([cronLogId, invoiceId])
   @@index([cronLogId])
   @@index([invoiceId])
+}
+
+model HarvestCompany {
+  id                Int                      @id @default(autoincrement())
+  harvestId         String                   @unique // Harvest API client ID
+  name              String?                  // Company name from Harvest
+  isActive          Boolean                  @default(true)
+  invoices          HarvestInvoice[]
+  mappings          HarvestCompanyMapping[]
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@index([harvestId])
+  @@index([name])
+}
+
+model HarvestCompanyMapping {
+  id                Int                      @id @default(autoincrement())
+  hubspotCompanyId  Int
+  hubspotCompany    HubspotCompany           @relation(fields: [hubspotCompanyId], references: [id], onDelete: Cascade)
+  harvestCompanyId  Int
+  harvestCompany    HarvestCompany           @relation(fields: [harvestCompanyId], references: [id], onDelete: Cascade)
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@unique([hubspotCompanyId, harvestCompanyId])
+  @@index([hubspotCompanyId])
+  @@index([harvestCompanyId])
 }

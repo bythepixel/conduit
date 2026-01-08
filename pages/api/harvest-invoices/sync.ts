@@ -212,10 +212,25 @@ export default async function handler(
                             }
                         })
 
+                        // Try to find HarvestCompany if clientId exists
+                        let harvestCompanyId: number | undefined = undefined
+                        if (invoice.client?.id) {
+                            const harvestCompany = await prisma.harvestCompany.findUnique({
+                                where: { harvestId: invoice.client.id.toString() }
+                            })
+                            if (harvestCompany) {
+                                harvestCompanyId = harvestCompany.id
+                            }
+                        }
+
                         // Check if invoice exists
                         const existingInvoice = await prisma.harvestInvoice.findUnique({
                             where: { harvestId }
                         })
+
+                        if (harvestCompanyId !== undefined) {
+                            invoiceData.harvestCompanyId = harvestCompanyId
+                        }
 
                         if (existingInvoice) {
                             // Update existing invoice

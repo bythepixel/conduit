@@ -37,6 +37,7 @@ export default function HarvestInvoices() {
     const [loading, setLoading] = useState(true)
     const [syncing, setSyncing] = useState(false)
     const [syncingInvoices, setSyncingInvoices] = useState<Set<number>>(new Set())
+    const [creatingDeals, setCreatingDeals] = useState<Set<number>>(new Set())
     const [search, setSearch] = useState('')
     const [expandedInvoices, setExpandedInvoices] = useState<Set<number>>(new Set())
     const [showSyncConfirm, setShowSyncConfirm] = useState(false)
@@ -205,6 +206,50 @@ export default function HarvestInvoices() {
         }
     }
 
+    const handleCreateDeal = async (invoiceId: number) => {
+        setCreatingDeals(prev => {
+            const newSet = new Set(prev)
+            newSet.add(invoiceId)
+            return newSet
+        })
+
+        try {
+            const res = await fetch(`/api/harvest-invoices/${invoiceId}/create-deal`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            })
+            const data = await res.json()
+            if (res.ok) {
+                setModalConfig({
+                    isOpen: true,
+                    type: 'success',
+                    title: 'Deal Created',
+                    message: `Successfully created HubSpot deal!\n\nDeal ID: ${data.dealId}\nCompany ID: ${data.companyId}${data.dealUrl ? `\n\nView deal: ${data.dealUrl}` : ''}`
+                })
+            } else {
+                setModalConfig({
+                    isOpen: true,
+                    type: 'error',
+                    title: 'Create Deal Failed',
+                    message: data.error || 'Failed to create deal'
+                })
+            }
+        } catch (error: any) {
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Error',
+                message: 'An error occurred: ' + (error.message || 'Unknown error')
+            })
+        } finally {
+            setCreatingDeals(prev => {
+                const newSet = new Set(prev)
+                newSet.delete(invoiceId)
+                return newSet
+            })
+        }
+    }
+
     if (status === "loading" || !session) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-slate-100">Loading...</div>
 
     // Filter invoices by search
@@ -347,35 +392,64 @@ export default function HarvestInvoices() {
                                                     </button>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            handleSingleSync(invoice.id)
-                                                        }}
-                                                        disabled={syncingInvoices.has(invoice.id) || syncing}
-                                                        className={`p-2 rounded-lg transition-colors ${
-                                                            syncingInvoices.has(invoice.id) || syncing
-                                                                ? 'text-slate-500 cursor-not-allowed'
-                                                                : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-900/20'
-                                                        }`}
-                                                        title="Sync this invoice from Harvest"
-                                                    >
-                                                        {syncingInvoices.has(invoice.id) ? (
-                                                            <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                            </svg>
-                                                        ) : (
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2" />
-                                                            </svg>
-                                                        )}
-                                                    </button>
+                                                    <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                handleSingleSync(invoice.id)
+                                                            }}
+                                                            disabled={syncingInvoices.has(invoice.id) || syncing}
+                                                            className={`p-2 rounded-lg transition-colors ${
+                                                                syncingInvoices.has(invoice.id) || syncing
+                                                                    ? 'text-slate-500 cursor-not-allowed'
+                                                                    : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-900/20'
+                                                            }`}
+                                                            title="Sync this invoice from Harvest"
+                                                        >
+                                                            {syncingInvoices.has(invoice.id) ? (
+                                                                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                </svg>
+                                                            ) : (
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2" />
+                                                                </svg>
+                                                            )}
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                handleCreateDeal(invoice.id)
+                                                            }}
+                                                            disabled={creatingDeals.has(invoice.id)}
+                                                            className={`p-2 rounded-lg transition-colors ${
+                                                                creatingDeals.has(invoice.id)
+                                                                    ? 'text-slate-500 cursor-not-allowed'
+                                                                    : 'text-green-400 hover:text-green-600 hover:bg-green-900/20'
+                                                            }`}
+                                                            title="Create HubSpot deal from this invoice"
+                                                        >
+                                                            {creatingDeals.has(invoice.id) ? (
+                                                                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                </svg>
+                                                            ) : (
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path>
+                                                                    <line x1="18" y1="3" x2="12" y2="9"></line>
+                                                                    <line x1="15" y1="3" x2="21" y2="3"></line>
+                                                                    <line x1="21" y1="3" x2="21" y2="9"></line>
+                                                                </svg>
+                                                            )}
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                             {expandedInvoices.has(invoice.id) && (
                                                 <tr>
-                                                    <td colSpan={8} className="px-6 py-4 bg-slate-700/20">
+                                                    <td colSpan={9} className="px-6 py-4 bg-slate-700/20">
                                                         <div className="space-y-2">
                                                             <div>
                                                                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Subject:</span>

@@ -167,3 +167,195 @@ export async function syncMeetingNoteToHubSpot(meetingNoteId: number): Promise<v
     console.log(`[HubSpot Service] Successfully synced meeting note ${meetingNoteId} to HubSpot`)
 }
 
+/**
+ * Creates a deal in HubSpot from a Harvest invoice
+ * Uses the HarvestCompanyMapping to find the associated HubSpot company
+ */
+export async function createDealFromHarvestInvoice(invoiceId: number): Promise<{ dealId: string, companyId: string }> {
+    try {
+        // Fetch the invoice
+        const invoice = await prisma.harvestInvoice.findUnique({
+            where: { id: invoiceId }
+        })
+
+        if (!invoice) {
+            throw new Error(`Invoice with ID ${invoiceId} not found`)
+        }
+
+        // Determine the Harvest client ID from the invoice
+        // First try harvestCompanyId, then fall back to clientId
+        let harvestClientId: string | null = null
+        
+        if (invoice.harvestCompanyId) {
+            // Invoice has a direct link to HarvestCompany
+            const harvestCompany = await prisma.harvestCompany.findUnique({
+                where: { id: invoice.harvestCompanyId }
+            })
+            if (harvestCompany) {
+                harvestClientId = harvestCompany.harvestId
+            }
+        } else if (invoice.clientId) {
+            // Invoice has clientId, use it directly
+            harvestClientId = invoice.clientId
+        }
+
+        if (!harvestClientId) {
+            throw new Error(`Invoice does not have a Harvest client ID. Please sync the invoice or ensure it has a clientId.`)
+        }
+
+        // Find the HarvestCompany by harvestId (clientId)
+        const harvestCompany = await prisma.harvestCompany.findUnique({
+            where: { harvestId: harvestClientId },
+            include: {
+                mappings: {
+                    include: {
+                        hubspotCompany: true
+                    }
+                }
+            }
+        })
+
+        if (!harvestCompany) {
+            throw new Error(`Harvest company with ID "${harvestClientId}" not found in database. Please sync Harvest companies first.`)
+        }
+
+        if (!harvestCompany.mappings || harvestCompany.mappings.length === 0) {
+            throw new Error(`Harvest company "${harvestCompany.name || harvestCompany.harvestId}" is not mapped to any HubSpot company. Please create a mapping first.`)
+        }
+
+        // Use the first mapping (if multiple exist, use the first one)
+        const mapping = harvestCompany.mappings[0]
+        const hubspotCompany = mapping.hubspotCompany
+
+        if (!hubspotCompany.companyId) {
+            throw new Error(`HubSpot Company does not have a companyId`)
+        }
+
+        console.log(`[HubSpot API] Creating deal from invoice ${invoiceId} for company ${hubspotCompany.companyId}`)
+        const hubspot = getHubSpotClient()
+
+        // Format deal name from invoice
+        const dealName = invoice.subject || 
+                        `Invoice ${invoice.number || invoice.harvestId}` ||
+                        `Harvest Invoice ${invoice.harvestId}`
+
+        // Prepare deal properties
+        const dealProperties: any = {
+            dealname: dealName,
+            amount: invoice.amount ? invoice.amount.toString() : undefined,
+            dealstage: 'appointmentscheduled', // Default stage - can be customized
+            pipeline: 'default', // Default pipeline
+        }
+
+        // Add invoice number if available
+        if (invoice.number) {
+            dealProperties.invoice_number = invoice.number
+        }
+
+        // Add issue date if available
+        if (invoice.issueDate) {
+            dealProperties.closedate = new Date(invoice.issueDate).toISOString()
+        }
+
+        // Add paid date if available
+        if (invoice.paidDate) {
+            dealProperties.hs_date_closed = new Date(invoice.paidDate).toISOString()
+        }
+
+        // Add currency if available
+        if (invoice.currency) {
+            dealProperties.deal_currency_code = invoice.currency
+        }
+
+        // Remove undefined values
+        Object.keys(dealProperties).forEach(key => {
+            if (dealProperties[key] === undefined) {
+                delete dealProperties[key]
+            }
+        })
+
+        // Create the deal
+        const dealResponse = await hubspot.crm.deals.basicApi.create({
+            properties: dealProperties,
+            associations: [
+                {
+                    to: { id: hubspotCompany.companyId },
+                    types: [{
+                        associationCategory: 'HUBSPOT_DEFINED',
+                        associationTypeId: 5 // Deal to Company association
+                    }]
+                }
+            ]
+        })
+
+        const dealId = dealResponse.id
+
+        console.log(`[HubSpot API] Successfully created deal ${dealId} from invoice ${invoiceId}`)
+
+        // Optionally, add invoice details as a note
+        if (invoice.notes || invoice.subject) {
+            try {
+                const noteBody = [
+                    invoice.subject ? `<p><strong>Invoice Subject:</strong> ${invoice.subject}</p>` : '',
+                    invoice.number ? `<p><strong>Invoice Number:</strong> ${invoice.number}</p>` : '',
+                    invoice.amount ? `<p><strong>Amount:</strong> ${invoice.currency || 'USD'} ${invoice.amount}</p>` : '',
+                    invoice.state ? `<p><strong>Status:</strong> ${invoice.state}</p>` : '',
+                    invoice.issueDate ? `<p><strong>Issue Date:</strong> ${new Date(invoice.issueDate).toLocaleDateString()}</p>` : '',
+                    invoice.paidDate ? `<p><strong>Paid Date:</strong> ${new Date(invoice.paidDate).toLocaleDateString()}</p>` : '',
+                    invoice.notes ? `<p><strong>Notes:</strong><br>${invoice.notes.replace(/\n/g, '<br>')}</p>` : '',
+                    `<p><strong>Source:</strong> Harvest Invoice ${invoice.harvestId}</p>`
+                ].filter(Boolean).join('')
+
+                await hubspot.crm.objects.notes.basicApi.create({
+                    properties: {
+                        hs_timestamp: Date.now().toString(),
+                        hs_note_body: noteBody
+                    },
+                    associations: [
+                        {
+                            to: { id: dealId },
+                            types: [{
+                                associationCategory: 'HUBSPOT_DEFINED',
+                                associationTypeId: 214 // Note to Deal association
+                            }]
+                        },
+                        {
+                            to: { id: hubspotCompany.companyId },
+                            types: [{
+                                associationCategory: 'HUBSPOT_DEFINED',
+                                associationTypeId: 190 // Note to Company association
+                            }]
+                        }
+                    ]
+                })
+            } catch (noteError: any) {
+                // Log but don't fail if note creation fails
+                console.error(`[HubSpot API] Failed to create note for deal ${dealId}:`, noteError)
+            }
+        }
+
+        return {
+            dealId: dealId.toString(),
+            companyId: hubspotCompany.companyId
+        }
+    } catch (err: any) {
+        const errorCode = err.code || err.statusCode || err.status
+        const errorMsg = err.message || err.body?.message || 'Unknown error'
+        
+        // Rate limit errors
+        if (errorCode === 429 || 
+            errorMsg.toLowerCase().includes('rate limit') || 
+            errorMsg.toLowerCase().includes('too many requests')) {
+            console.error(`[HubSpot API] Rate limit error: ${errorMsg}`, err)
+            const rateLimitError: any = new Error(`HubSpot API Rate Limit Error: ${errorMsg}`)
+            rateLimitError.code = 429
+            rateLimitError.statusCode = 429
+            rateLimitError.body = { message: errorMsg }
+            throw rateLimitError
+        }
+        
+        console.error(`[HubSpot API] Error creating deal from invoice:`, err)
+        throw new Error(`HubSpot API Error: ${errorMsg}`)
+    }
+}
+

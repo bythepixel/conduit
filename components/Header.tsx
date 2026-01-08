@@ -44,7 +44,9 @@ export default function Header({ action }: HeaderProps) {
 
     // Check if Hubvest child is active
     const isHubvestActive = () => {
-        return isActive('/admin/harvest-invoices') || isActive('/admin/harvest-invoice-cron-logs')
+        return isActive('/admin/harvest-invoices') || 
+               isActive('/admin/harvest-company-mappings') || 
+               isActive('/admin/harvest-invoice-cron-logs')
     }
 
     // Close menus when clicking outside
@@ -283,6 +285,15 @@ export default function Header({ action }: HeaderProps) {
                                                 : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
                                         }`}>
                                             Harvest Invoices
+                                        </a>
+                                    </Link>
+                                    <Link href="/admin/harvest-company-mappings">
+                                        <a className={`block px-4 py-2 text-sm transition-colors ${
+                                            isActive('/admin/harvest-company-mappings')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                        }`}>
+                                            Company Mappings
                                         </a>
                                     </Link>
                                     <Link href="/admin/harvest-invoice-cron-logs">
@@ -550,6 +561,15 @@ export default function Header({ action }: HeaderProps) {
                                                     : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
                                             }`}>
                                                 Harvest Invoices
+                                            </a>
+                                        </Link>
+                                        <Link href="/admin/harvest-company-mappings">
+                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                                isActive('/admin/harvest-company-mappings')
+                                                    ? 'bg-slate-700 text-indigo-400'
+                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                            }`}>
+                                                Company Mappings
                                             </a>
                                         </Link>
                                         <Link href="/admin/harvest-invoice-cron-logs">

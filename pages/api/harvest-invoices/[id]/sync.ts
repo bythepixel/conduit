@@ -82,6 +82,17 @@ export default async function handler(
             return isNaN(parsed) ? null : parsed
         }
 
+        // Try to find HarvestCompany if clientId exists
+        let harvestCompanyId: number | undefined = undefined
+        if (invoiceFromHarvest.client?.id) {
+            const harvestCompany = await prisma.harvestCompany.findUnique({
+                where: { harvestId: invoiceFromHarvest.client.id.toString() }
+            })
+            if (harvestCompany) {
+                harvestCompanyId = harvestCompany.id
+            }
+        }
+
         const updateData: any = {
             clientId: invoiceFromHarvest.client?.id?.toString() || undefined,
             clientName: invoiceFromHarvest.client?.name || undefined,
@@ -102,6 +113,10 @@ export default async function handler(
             paidDate: paidDate || undefined,
             paymentTerm: invoiceFromHarvest.payment_term || undefined,
             metadata: invoiceFromHarvest.metadata ? JSON.parse(JSON.stringify(invoiceFromHarvest.metadata)) : undefined
+        }
+
+        if (harvestCompanyId !== undefined) {
+            updateData.harvestCompanyId = harvestCompanyId
         }
         
         // Remove undefined values to avoid Prisma errors
