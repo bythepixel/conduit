@@ -1,5 +1,5 @@
 import { Client as HubSpotClient } from '@hubspot/api-client'
-import { getRequiredEnv } from '../../config/env'
+import { getRequiredEnv, getEnv } from '../../config/env'
 import { prisma } from '../../prisma'
 
 let hubspotClient: HubSpotClient | null = null
@@ -182,6 +182,11 @@ export async function createDealFromHarvestInvoice(invoiceId: number): Promise<{
             throw new Error(`Invoice with ID ${invoiceId} not found`)
         }
 
+        // Prevent creating deals for draft invoices
+        if (invoice.state && invoice.state.toLowerCase() === 'draft') {
+            throw new Error(`Cannot create a deal for an invoice in Draft state. Please wait until the invoice is sent.`)
+        }
+
         // Determine the Harvest client ID from the invoice
         // First try harvestCompanyId, then fall back to clientId
         let harvestClientId: string | null = null
@@ -239,17 +244,27 @@ export async function createDealFromHarvestInvoice(invoiceId: number): Promise<{
                         `Invoice ${invoice.number || invoice.harvestId}` ||
                         `Harvest Invoice ${invoice.harvestId}`
 
+        // Map invoice state to deal stage
+        const invoiceSentStageId = getEnv('HUBSPOT_DEAL_STAGE_INVOICE_SENT', '1269293330')
+        const invoicePaidStageId = getEnv('HUBSPOT_DEAL_STAGE_INVOICE_PAID', '1269293338')
+        
+        let dealStage = invoiceSentStageId // Default stage: Invoice Sent
+        if (invoice.state) {
+            const stateLower = invoice.state.toLowerCase()
+            if (stateLower === 'open') {
+                dealStage = invoiceSentStageId // Invoice Sent
+            } else if (stateLower === 'paid') {
+                dealStage = invoicePaidStageId // Invoice Paid (Closed)
+            }
+        }
+
         // Prepare deal properties
         const dealProperties: any = {
             dealname: dealName,
             amount: invoice.amount ? invoice.amount.toString() : undefined,
-            dealstage: 'appointmentscheduled', // Default stage - can be customized
-            pipeline: 'default', // Default pipeline
-        }
-
-        // Add invoice number if available
-        if (invoice.number) {
-            dealProperties.invoice_number = invoice.number
+            dealstage: dealStage,
+            // Use Partner Pipeline (configurable via env). Fallback to 'default' if not set.
+            pipeline: getEnv('HUBSPOT_PARTNER_PIPELINE_ID', 'default'),
         }
 
         // Add issue date if available
@@ -291,6 +306,12 @@ export async function createDealFromHarvestInvoice(invoiceId: number): Promise<{
         const dealId = dealResponse.id
 
         console.log(`[HubSpot API] Successfully created deal ${dealId} from invoice ${invoiceId}`)
+
+        // Save the deal ID to the invoice
+        await prisma.harvestInvoice.update({
+            where: { id: invoiceId },
+            data: { hubspotDealId: dealId.toString() }
+        })
 
         // Optionally, add invoice details as a note
         if (invoice.notes || invoice.subject) {

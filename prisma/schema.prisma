@@ -188,6 +188,7 @@ model HarvestInvoice {
   paidDate          DateTime? // Paid date
   paymentTerm       String?   // Payment term
   metadata          Json?     // Additional metadata from Harvest API
+  hubspotDealId     String?   // HubSpot deal ID if deal was created from this invoice
   cronLogInvoiceLogs HarvestInvoiceCronLogInvoice[]
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt

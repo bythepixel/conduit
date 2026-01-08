@@ -26,6 +26,7 @@ type HarvestInvoice = {
     dueDate?: string
     paidDate?: string
     paymentTerm?: string
+    hubspotDealId?: string
     createdAt: string
     updatedAt: string
 }
@@ -220,6 +221,8 @@ export default function HarvestInvoices() {
             })
             const data = await res.json()
             if (res.ok) {
+                // Refresh the invoice list to show the updated deal ID
+                await fetchInvoices()
                 setModalConfig({
                     isOpen: true,
                     type: 'success',
@@ -422,13 +425,13 @@ export default function HarvestInvoices() {
                                                                 e.stopPropagation()
                                                                 handleCreateDeal(invoice.id)
                                                             }}
-                                                            disabled={creatingDeals.has(invoice.id)}
+                                                            disabled={creatingDeals.has(invoice.id) || invoice.state?.toLowerCase() === 'draft'}
                                                             className={`p-2 rounded-lg transition-colors ${
-                                                                creatingDeals.has(invoice.id)
+                                                                creatingDeals.has(invoice.id) || invoice.state?.toLowerCase() === 'draft'
                                                                     ? 'text-slate-500 cursor-not-allowed'
                                                                     : 'text-green-400 hover:text-green-600 hover:bg-green-900/20'
                                                             }`}
-                                                            title="Create HubSpot deal from this invoice"
+                                                            title={invoice.state?.toLowerCase() === 'draft' ? 'Cannot create deal for draft invoices' : 'Create HubSpot deal from this invoice'}
                                                         >
                                                             {creatingDeals.has(invoice.id) ? (
                                                                 <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -451,6 +454,12 @@ export default function HarvestInvoices() {
                                                 <tr>
                                                     <td colSpan={9} className="px-6 py-4 bg-slate-700/20">
                                                         <div className="space-y-2">
+                                                            {invoice.hubspotDealId && (
+                                                                <div>
+                                                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">HubSpot Deal ID:</span>
+                                                                    <div className="text-sm text-indigo-400 font-mono mt-1">{invoice.hubspotDealId}</div>
+                                                                </div>
+                                                            )}
                                                             <div>
                                                                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Subject:</span>
                                                                 <div className="text-sm text-slate-200 mt-1">{invoice.subject || 'N/A'}</div>
