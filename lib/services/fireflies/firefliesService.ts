@@ -85,15 +85,11 @@ export class FirefliesService {
                         id
                         title
                         transcript_url
-                        notes
                         summary {
                             action_items
                             outline
                             keywords
-                            overview
-                            gist
-                            bullet_gist
-                            shorthand_bullet
+                            short_summary
                         }
                         participants
                         duration
@@ -121,6 +117,9 @@ export class FirefliesService {
 
                 if (result.errors) {
                     console.log('[FirefliesService] GraphQL errors when fetching by ID:', result.errors)
+                    // If there are GraphQL errors, don't try fallback - the query itself is likely invalid
+                    const errorMessages = result.errors.map((e: any) => e.message || 'Unknown error').join('; ')
+                    return { success: false, error: `Firefly GraphQL Error: ${errorMessages}` }
                 } else if (result.data?.transcript) {
                     transcript = result.data.transcript
                     console.log(`[FirefliesService] Successfully fetched meeting by ID: ${transcript.id}`)
@@ -130,6 +129,11 @@ export class FirefliesService {
             } else {
                 const errorText = await response.text()
                 console.log(`[FirefliesService] HTTP error when fetching by ID (${response.status}):`, errorText)
+                
+                // If it's a 400 (bad request), don't try fallback - the query is likely invalid
+                if (response.status === 400) {
+                    return { success: false, error: `Firefly API Error: ${response.status} - ${errorText}` }
+                }
             }
 
             // If fetching by ID didn't work (fallback logic from original code)
@@ -142,15 +146,11 @@ export class FirefliesService {
                             id
                             title
                             transcript_url
-                            notes
                             summary {
                                 action_items
                                 outline
                                 keywords
-                                overview
-                                gist
-                                bullet_gist
-                                shorthand_bullet
+                                short_summary
                             }
                             participants
                             duration
@@ -173,13 +173,16 @@ export class FirefliesService {
 
                 if (!response.ok) {
                     const errorText = await response.text()
-                    return { success: false, error: `Firefly API Error: ${response.status}` }
+                    console.error(`[FirefliesService] HTTP error in fallback query (${response.status}):`, errorText)
+                    return { success: false, error: `Firefly API Error: ${response.status} - ${errorText}` }
                 }
 
                 const result = await response.json()
 
                 if (result.errors) {
-                    return { success: false, error: 'Firefly GraphQL Error' }
+                    const errorMessages = result.errors.map((e: any) => e.message || 'Unknown error').join('; ')
+                    console.error('[FirefliesService] GraphQL errors in fallback query:', result.errors)
+                    return { success: false, error: `Firefly GraphQL Error: ${errorMessages}` }
                 }
 
                 const transcripts = result.data?.transcripts || []
@@ -244,22 +247,10 @@ export class FirefliesService {
 
             const transcriptUrl = transcript.transcript_url || null
 
-            // Handle notes - prefer the notes field from API, fallback to summary fields
+            // Handle notes - use short_summary from the API
             let notesText: string | null = null
-            if (transcript.notes) {
-                // Use the notes field directly from the API
-                notesText = transcript.notes
-            } else if (transcript.summary) {
-                // Fallback to summary fields if notes field is not available
-                if (transcript.summary.overview) {
-                    notesText = transcript.summary.overview
-                } else if (transcript.summary.bullet_gist && Array.isArray(transcript.summary.bullet_gist)) {
-                    notesText = transcript.summary.bullet_gist.join('\n')
-                } else if (transcript.summary.gist) {
-                    notesText = transcript.summary.gist
-                } else if (transcript.summary.shorthand_bullet && Array.isArray(transcript.summary.shorthand_bullet)) {
-                    notesText = transcript.summary.shorthand_bullet.join('\n')
-                }
+            if (transcript.summary?.short_summary) {
+                notesText = transcript.summary.short_summary
             }
 
             // Look for a matching HubSpot company based on the first word of the title

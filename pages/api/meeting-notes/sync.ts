@@ -53,11 +53,11 @@ export default async function handler(
                             id
                             title
                             transcript_url
-                            notes
                             summary {
                                 action_items
                                 outline
                                 keywords
+                                short_summary
                             }
                             participants
                             duration
@@ -173,8 +173,12 @@ export default async function handler(
                             summaryText = summaryParts.length > 0 ? summaryParts.join('\n\n') : null
                         }
 
-                        // Get notes and transcript URL from the transcript
-                        const notes = transcript.notes || null
+                        // Use short_summary from the API for notes
+                        let notes: string | null = null
+                        if (transcript.summary?.short_summary) {
+                            notes = transcript.summary.short_summary
+                        }
+                        
                         const transcriptUrl = transcript.transcript_url || null
 
                         const noteData: any = {
