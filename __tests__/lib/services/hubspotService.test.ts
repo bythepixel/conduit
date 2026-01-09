@@ -1,15 +1,20 @@
-import { createCompanyNote } from '../../../lib/services/hubspot/hubspotService'
-import { mockHubSpotClient } from '../../utils/mocks'
-import { getRequiredEnv } from '../../../lib/config/env'
+import { createCompanyNote, createDealFromHarvestInvoice, syncDealFromHarvestInvoice } from '../../../lib/services/hubspot/hubspotService'
+import { mockHubSpotClient, mockPrisma } from '../../utils/mocks'
+import { getRequiredEnv, getEnv } from '../../../lib/config/env'
 
 // Mock the config/env module
 jest.mock('../../../lib/config/env', () => ({
   getRequiredEnv: jest.fn(() => 'test-token'),
+  getEnv: jest.fn((key: string, defaultValue?: string) => defaultValue || 'default-value'),
 }))
 
 // Mock HubSpot Client
 jest.mock('@hubspot/api-client', () => ({
   Client: jest.fn().mockImplementation(() => mockHubSpotClient),
+}))
+
+jest.mock('../../../lib/prisma', () => ({
+  prisma: require('../../utils/mocks').mockPrisma,
 }))
 
 describe('hubspotService', () => {
@@ -197,6 +202,181 @@ describe('hubspotService', () => {
           }),
         })
       )
+    })
+  })
+
+  describe('createDealFromHarvestInvoice', () => {
+    beforeEach(() => {
+      mockPrisma.harvestInvoice.findUnique.mockResolvedValue({
+        id: 1,
+        harvestId: '123',
+        state: 'open',
+        subject: 'Test Invoice',
+        amount: 1000,
+        currency: 'USD',
+        issueDate: new Date('2024-01-01'),
+        paidDate: null,
+        harvestCompanyId: 1,
+        hubspotDealId: null
+      } as any)
+
+      mockPrisma.harvestCompany.findUnique.mockResolvedValue({
+        id: 1,
+        harvestId: 'client-123',
+        mappings: [{
+          hubspotCompany: {
+            id: 1,
+            companyId: 'hs-123',
+            ownerId: 'owner-123'
+          }
+        }]
+      } as any)
+
+      mockPrisma.hubspotCompany.findUnique.mockResolvedValue({
+        id: 1,
+        companyId: 'hs-123',
+        ownerId: 'owner-123'
+      } as any)
+
+      mockHubSpotClient.crm.deals.basicApi.create.mockResolvedValue({
+        id: 'deal-123'
+      } as any)
+
+      mockPrisma.harvestInvoice.update.mockResolvedValue({} as any)
+    })
+
+    it('should create a deal from an invoice', async () => {
+      const result = await createDealFromHarvestInvoice(1)
+
+      expect(mockPrisma.harvestInvoice.findUnique).toHaveBeenCalledWith({
+        where: { id: 1 }
+      })
+      expect(mockHubSpotClient.crm.deals.basicApi.create).toHaveBeenCalled()
+      expect(mockPrisma.harvestInvoice.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { hubspotDealId: 'deal-123' }
+      })
+      expect(result).toEqual({
+        dealId: 'deal-123',
+        companyId: 'hs-123'
+      })
+    })
+
+    it('should throw error if invoice not found', async () => {
+      mockPrisma.harvestInvoice.findUnique.mockResolvedValue(null)
+
+      await expect(createDealFromHarvestInvoice(999)).rejects.toThrow('Invoice with ID 999 not found')
+    })
+
+    it('should throw error for draft invoices', async () => {
+      mockPrisma.harvestInvoice.findUnique.mockResolvedValue({
+        id: 1,
+        state: 'draft'
+      } as any)
+
+      await expect(createDealFromHarvestInvoice(1)).rejects.toThrow('Draft state')
+    })
+
+    it('should throw error if no company mapping exists', async () => {
+      mockPrisma.harvestCompany.findUnique.mockResolvedValue({
+        id: 1,
+        harvestId: 'client-123',
+        mappings: []
+      } as any)
+
+      await expect(createDealFromHarvestInvoice(1)).rejects.toThrow('mapped to any HubSpot company')
+    })
+
+    it('should handle rate limit errors', async () => {
+      const rateLimitError: any = new Error('Rate limit')
+      rateLimitError.code = 429
+      rateLimitError.statusCode = 429
+
+      mockHubSpotClient.crm.deals.basicApi.create.mockRejectedValue(rateLimitError)
+
+      await expect(createDealFromHarvestInvoice(1)).rejects.toThrow('Rate Limit Error')
+    })
+  })
+
+  describe('syncDealFromHarvestInvoice', () => {
+    beforeEach(() => {
+      mockPrisma.harvestInvoice.findUnique.mockResolvedValue({
+        id: 1,
+        harvestId: '123',
+        state: 'open',
+        hubspotDealId: 'deal-123',
+        subject: 'Test Invoice',
+        amount: 1000,
+        currency: 'USD',
+        issueDate: new Date('2024-01-01'),
+        paidDate: null,
+        harvestCompanyId: 1
+      } as any)
+
+      mockPrisma.harvestCompany.findUnique.mockResolvedValue({
+        id: 1,
+        harvestId: 'client-123',
+        mappings: [{
+          hubspotCompany: {
+            id: 1,
+            companyId: 'hs-123',
+            ownerId: 'owner-123'
+          }
+        }]
+      } as any)
+
+      mockPrisma.hubspotCompany.findUnique.mockResolvedValue({
+        id: 1,
+        companyId: 'hs-123',
+        ownerId: 'owner-123'
+      } as any)
+
+      mockHubSpotClient.crm.deals.basicApi.update.mockResolvedValue({} as any)
+    })
+
+    it('should sync a deal from an invoice', async () => {
+      const result = await syncDealFromHarvestInvoice(1)
+
+      expect(mockPrisma.harvestInvoice.findUnique).toHaveBeenCalledWith({
+        where: { id: 1 }
+      })
+      expect(mockHubSpotClient.crm.deals.basicApi.update).toHaveBeenCalledWith(
+        'deal-123',
+        expect.any(Object)
+      )
+      expect(result).toEqual({
+        dealId: 'deal-123',
+        companyId: 'hs-123'
+      })
+    })
+
+    it('should throw error if invoice has no deal ID', async () => {
+      mockPrisma.harvestInvoice.findUnique.mockResolvedValue({
+        id: 1,
+        hubspotDealId: null
+      } as any)
+
+      await expect(syncDealFromHarvestInvoice(1)).rejects.toThrow('does not have an associated HubSpot deal')
+    })
+
+    it('should throw error for draft invoices', async () => {
+      mockPrisma.harvestInvoice.findUnique.mockResolvedValue({
+        id: 1,
+        hubspotDealId: 'deal-123',
+        state: 'draft'
+      } as any)
+
+      await expect(syncDealFromHarvestInvoice(1)).rejects.toThrow('Draft state')
+    })
+
+    it('should handle rate limit errors', async () => {
+      const rateLimitError: any = new Error('Rate limit')
+      rateLimitError.code = 429
+      rateLimitError.statusCode = 429
+
+      mockHubSpotClient.crm.deals.basicApi.update.mockRejectedValue(rateLimitError)
+
+      await expect(syncDealFromHarvestInvoice(1)).rejects.toThrow('Rate Limit Error')
     })
   })
 })
