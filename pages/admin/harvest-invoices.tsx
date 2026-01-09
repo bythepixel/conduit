@@ -42,6 +42,7 @@ export default function HarvestInvoices() {
     const [creatingDeals, setCreatingDeals] = useState<Set<number>>(new Set())
     const [syncingDeals, setSyncingDeals] = useState<Set<number>>(new Set())
     const [search, setSearch] = useState('')
+    const [showOnlyNoMapping, setShowOnlyNoMapping] = useState(false)
     const [expandedInvoices, setExpandedInvoices] = useState<Set<number>>(new Set())
     const [showSyncConfirm, setShowSyncConfirm] = useState(false)
     const [modalConfig, setModalConfig] = useState<{ isOpen: boolean, type: 'error' | 'success' | 'info', title: string, message: string }>({
@@ -301,8 +302,14 @@ export default function HarvestInvoices() {
 
     if (status === "loading" || !session) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-slate-100">Loading...</div>
 
-    // Filter invoices by search
+    // Filter invoices by search and mapping status
     const filteredInvoices = invoices.filter(inv => {
+        // Filter by mapping status first
+        if (showOnlyNoMapping && inv.hasMapping !== false) {
+            return false
+        }
+        
+        // Then filter by search
         if (!search.trim()) return true
         const searchLower = search.toLowerCase()
         const clientName = inv.clientName?.toLowerCase() || ''
@@ -336,6 +343,15 @@ export default function HarvestInvoices() {
                             onChange={(e) => setSearch(e.target.value)}
                             className="px-3 py-1.5 bg-slate-900 border border-slate-600 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm w-48"
                         />
+                        <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer hover:text-slate-100 transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={showOnlyNoMapping}
+                                onChange={(e) => setShowOnlyNoMapping(e.target.checked)}
+                                className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-indigo-600 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 cursor-pointer"
+                            />
+                            <span>No Company Mapping</span>
+                        </label>
                         <button
                             onClick={handleSync}
                             disabled={syncing}

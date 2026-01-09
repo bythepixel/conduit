@@ -10,6 +10,7 @@ import {
     updateHarvestInvoiceCronLogFailed,
     createHarvestInvoiceErrorCronLog
 } from '../../../lib/services/harvest/harvestCronLogService'
+import { createDealFromHarvestInvoice } from '../../../lib/services/hubspot/hubspotService'
 
 // Force dynamic execution to prevent caching issues with Vercel cron jobs
 export const dynamic = 'force-dynamic'
@@ -94,6 +95,7 @@ export default async function handler(
         const results = {
             created: 0,
             updated: 0,
+            dealsCreated: 0,
             errors: [] as string[]
         }
 
@@ -215,7 +217,7 @@ export default async function handler(
                         // Try to find HarvestCompany if clientId exists
                         let harvestCompanyId: number | undefined = undefined
                         if (invoice.client?.id) {
-                            const harvestCompany = await prisma.harvestCompany.findUnique({
+                            const harvestCompany = await (prisma as any).harvestCompany.findUnique({
                                 where: { harvestId: invoice.client.id.toString() }
                             })
                             if (harvestCompany) {
@@ -232,19 +234,56 @@ export default async function handler(
                             invoiceData.harvestCompanyId = harvestCompanyId
                         }
 
+                        let invoiceId: number
+                        let shouldCreateDeal = false
+                        
                         if (existingInvoice) {
                             // Update existing invoice
+                            // Only create deal if invoice doesn't already have one
+                            shouldCreateDeal = !(existingInvoice as any).hubspotDealId
+                            
                             await prisma.harvestInvoice.update({
                                 where: { id: existingInvoice.id },
                                 data: invoiceData
                             })
+                            invoiceId = existingInvoice.id
                             results.updated++
                         } else {
                             // Create new invoice
-                            await prisma.harvestInvoice.create({
+                            const newInvoice = await prisma.harvestInvoice.create({
                                 data: invoiceData
                             })
+                            invoiceId = newInvoice.id
+                            shouldCreateDeal = true // New invoice won't have a deal yet
                             results.created++
+                        }
+
+                        // Automatically create HubSpot deal if validation passes
+                        // Only create if:
+                        // 1. Invoice doesn't already have a deal (checked above)
+                        // 2. Invoice is not in Draft state
+                        // 3. There's a mapping (will be checked by createDealFromHarvestInvoice)
+                        if (shouldCreateDeal && 
+                            invoiceData.state && 
+                            invoiceData.state.toLowerCase() !== 'draft') {
+                            
+                            // Try to create the deal
+                            // This will fail gracefully if there's no mapping
+                            try {
+                                await createDealFromHarvestInvoice(invoiceId)
+                                results.dealsCreated++
+                                console.log(`[Harvest Sync] Automatically created HubSpot deal for invoice ${invoiceId}`)
+                            } catch (dealError: any) {
+                                // If it's a mapping error, that's expected - just log it
+                                if (dealError.message && dealError.message.includes('mapped to any HubSpot company')) {
+                                    // This is expected - no mapping exists, skip deal creation
+                                    console.log(`[Harvest Sync] Skipping deal creation for invoice ${invoiceId}: No company mapping`)
+                                } else {
+                                    // Other errors (rate limits, etc.) - log but don't fail the sync
+                                    console.error(`[Harvest Sync] Failed to create deal for invoice ${invoiceId}:`, dealError.message)
+                                    // Don't add to errors array as this is a secondary operation
+                                }
+                            }
                         }
                     } catch (error: any) {
                         const errorMsg = error.code === 'P2002' 
