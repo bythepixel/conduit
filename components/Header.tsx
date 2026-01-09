@@ -42,11 +42,12 @@ export default function Header({ action }: HeaderProps) {
         return isActive('/admin/meeting-notes') || isActive('/admin/hubspot-companies') || isActive('/admin/fire-hook-logs')
     }
 
-    // Check if Hubvest child is active
+    // Check if HubVest child is active
     const isHubvestActive = () => {
         return isActive('/admin/harvest-invoices') || 
                isActive('/admin/harvest-company-mappings') || 
-               isActive('/admin/harvest-invoice-cron-logs')
+               isActive('/admin/harvest-invoice-cron-logs') ||
+               isActive('/admin/hubspot-companies')
     }
 
     // Close menus when clicking outside
@@ -250,7 +251,7 @@ export default function Header({ action }: HeaderProps) {
                             )}
                         </div>
 
-                        {/* Hubvest Dropdown */}
+                        {/* HubVest Dropdown */}
                         <div className="relative" ref={hubvestRef}>
                             <button
                                 onClick={() => setHubvestOpen(!hubvestOpen)}
@@ -260,7 +261,7 @@ export default function Header({ action }: HeaderProps) {
                                         : 'text-slate-300 hover:text-slate-100 hover:bg-slate-600/50'
                                 }`}
                             >
-                                Hubvest
+                                HubVest
                                 <svg 
                                     xmlns="http://www.w3.org/2000/svg" 
                                     width="14" 
@@ -278,6 +279,15 @@ export default function Header({ action }: HeaderProps) {
                             </button>
                             {hubvestOpen && (
                                 <div className="absolute top-full left-0 mt-1 w-48 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden z-50">
+                                    <Link href="/admin/hubspot-companies">
+                                        <a className={`block px-4 py-2 text-sm transition-colors ${
+                                            isActive('/admin/hubspot-companies')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                        }`}>
+                                            HubSpot Companies
+                                        </a>
+                                    </Link>
                                     <Link href="/admin/harvest-invoices">
                                         <a className={`block px-4 py-2 text-sm transition-colors ${
                                             isActive('/admin/harvest-invoices')
@@ -526,7 +536,7 @@ export default function Header({ action }: HeaderProps) {
                                 )}
                             </div>
 
-                            {/* Hubvest Dropdown - Mobile */}
+                            {/* HubVest Dropdown - Mobile */}
                             <div>
                                 <button
                                     onClick={() => setMobileHubvestOpen(!mobileHubvestOpen)}
@@ -536,7 +546,7 @@ export default function Header({ action }: HeaderProps) {
                                             : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
                                     }`}
                                 >
-                                    Hubvest
+                                    HubVest
                                     <svg 
                                         xmlns="http://www.w3.org/2000/svg" 
                                         width="16" 
@@ -554,6 +564,15 @@ export default function Header({ action }: HeaderProps) {
                                 </button>
                                 {mobileHubvestOpen && (
                                     <div className="pl-4 mt-1 space-y-1">
+                                        <Link href="/admin/hubspot-companies">
+                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                                isActive('/admin/hubspot-companies')
+                                                    ? 'bg-slate-700 text-indigo-400'
+                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                            }`}>
+                                                HubSpot Companies
+                                            </a>
+                                        </Link>
                                         <Link href="/admin/harvest-invoices">
                                             <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
                                                 isActive('/admin/harvest-invoices')

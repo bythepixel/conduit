@@ -38,7 +38,7 @@ export default async function handler(
                 const response: any = await hubspot.crm.companies.basicApi.getPage(
                     100, // limit
                     after,
-                    ['name'] // properties to fetch
+                    ['name', 'hubspot_owner_id'] // properties to fetch
                 )
 
                 const companies = response.results || []
@@ -47,6 +47,7 @@ export default async function handler(
                     try {
                         const companyId = company.id
                         const name = company.properties?.name || null
+                        const ownerId = company.properties?.hubspot_owner_id || null
 
                         if (!companyId) {
                             results.errors.push(`Skipped company: No company ID`)
@@ -62,11 +63,15 @@ export default async function handler(
                         })
 
                         if (existingCompany) {
-                            // Update existing company - only update name if it's different
+                            // Update existing company - update name and ownerId if they're different
                             const updateData: any = {}
                             
                             if (name && name !== existingCompany.name) {
                                 updateData.name = name
+                            }
+                            
+                            if (ownerId !== existingCompany.ownerId) {
+                                updateData.ownerId = ownerId || null
                             }
                             
                             // Only update if there are changes
@@ -83,7 +88,8 @@ export default async function handler(
                                 await prisma.hubspotCompany.create({
                                     data: {
                                         companyId: companyIdStr,
-                                        name: name || null
+                                        name: name || null,
+                                        ownerId: ownerId || null
                                     }
                                 })
                                 results.created++

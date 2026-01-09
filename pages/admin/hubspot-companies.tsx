@@ -11,6 +11,7 @@ type HubspotCompany = {
     name?: string
     btpAbbreviation?: string
     activeClient: boolean
+    ownerId?: string
     createdAt: string
     updatedAt: string
     _count?: {
@@ -461,6 +462,11 @@ export default function HubspotCompanies() {
                                             </div>
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <p className="text-slate-500 text-xs font-mono">{c.companyId}</p>
+                                                {c.ownerId && (
+                                                    <span className="text-xs text-slate-400">
+                                                        Owner: <span className="font-mono">{c.ownerId}</span>
+                                                    </span>
+                                                )}
                                                 {c._count && c._count.mappings > 0 && (
                                                     <span className="text-xs text-indigo-400">
                                                         {c._count.mappings} mapping{c._count.mappings !== 1 ? 's' : ''}

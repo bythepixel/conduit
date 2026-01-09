@@ -36,7 +36,7 @@ async function syncHubSpotCompanies(): Promise<{
             const response: any = await hubspot.crm.companies.basicApi.getPage(
                 100,
                 after,
-                ['name']
+                ['name', 'hubspot_owner_id']
             )
 
             const companies = response.results || []
@@ -45,6 +45,7 @@ async function syncHubSpotCompanies(): Promise<{
                 try {
                     const companyId = company.id
                     const name = company.properties?.name || null
+                    const ownerId = company.properties?.hubspot_owner_id || null
 
                     if (!companyId) {
                         results.errors.push(`Skipped company: No company ID`)
@@ -63,6 +64,9 @@ async function syncHubSpotCompanies(): Promise<{
                         if (name && name !== existingCompany.name) {
                             updateData.name = name
                         }
+                        if (ownerId !== existingCompany.ownerId) {
+                            updateData.ownerId = ownerId || null
+                        }
                         if (Object.keys(updateData).length > 0) {
                             await prisma.hubspotCompany.update({
                                 where: { id: existingCompany.id },
@@ -75,7 +79,8 @@ async function syncHubSpotCompanies(): Promise<{
                             await prisma.hubspotCompany.create({
                                 data: {
                                     companyId: companyIdStr,
-                                    name: name || null
+                                    name: name || null,
+                                    ownerId: ownerId || null
                                 }
                             })
                             results.created++

@@ -29,6 +29,7 @@ model HubspotCompany {
   name           String?
   btpAbbreviation String?       @unique
   activeClient    Boolean        @default(false)
+  ownerId        String?        // HubSpot company owner ID
   mappings        SlackMapping[]
   meetingNotes    MeetingNote[]
   harvestCompanyMappings HarvestCompanyMapping[]
