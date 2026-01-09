@@ -3,7 +3,7 @@ import Header from '../../components/Header'
 import { useState, useEffect } from 'react'
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/router"
-import { Play, Trash2, CheckCircle, XCircle, Info, AlertTriangle, Loader2 } from 'lucide-react'
+import { Play, Trash2, AlertTriangle, Loader2 } from 'lucide-react'
 import ErrorModal from '../../components/ErrorModal'
 
 type FireHookLog = {

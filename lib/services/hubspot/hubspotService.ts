@@ -555,4 +555,3 @@ export async function syncDealFromHarvestInvoice(invoiceId: number): Promise<{ d
         throw new Error(`HubSpot API Error: ${errorMsg}`)
     }
 }
-

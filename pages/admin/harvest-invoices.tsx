@@ -1,9 +1,13 @@
 import Head from 'next/head'
 import { useState, useEffect } from 'react'
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/router"
 import Header from '../../components/Header'
 import ErrorModal from '../../components/ErrorModal'
+import { useSetState } from '../../lib/hooks/useSetState'
+import { useApiCall } from '../../lib/hooks/useApiCall'
+import { useAuthGuard } from '../../lib/hooks/useAuthGuard'
+import { formatCurrency, formatDate, formatSyncResults } from '../../lib/utils/formatHelpers'
+import { createSearchFilter, filterByCondition } from '../../lib/utils/filterHelpers'
+import { getActionButtonClasses } from '../../lib/utils/buttonHelpers'
 
 type HarvestInvoice = {
     id: number
@@ -33,32 +37,26 @@ type HarvestInvoice = {
 }
 
 export default function HarvestInvoices() {
-    const { data: session, status } = useSession()
-    const router = useRouter()
+    const { isLoading } = useAuthGuard()
     const [invoices, setInvoices] = useState<HarvestInvoice[]>([])
     const [loading, setLoading] = useState(true)
     const [syncing, setSyncing] = useState(false)
-    const [syncingInvoices, setSyncingInvoices] = useState<Set<number>>(new Set())
-    const [creatingDeals, setCreatingDeals] = useState<Set<number>>(new Set())
-    const [syncingDeals, setSyncingDeals] = useState<Set<number>>(new Set())
+    const { set: syncingInvoices, add: addSyncing, remove: removeSyncing } = useSetState<number>()
+    const { set: creatingDeals, add: addCreating, remove: removeCreating } = useSetState<number>()
+    const { set: syncingDeals, add: addSyncingDeal, remove: removeSyncingDeal } = useSetState<number>()
     const [search, setSearch] = useState('')
     const [showOnlyNoMapping, setShowOnlyNoMapping] = useState(false)
-    const [expandedInvoices, setExpandedInvoices] = useState<Set<number>>(new Set())
+    const { set: expandedInvoices, toggle: toggleExpand } = useSetState<number>()
     const [showSyncConfirm, setShowSyncConfirm] = useState(false)
-    const [modalConfig, setModalConfig] = useState<{ isOpen: boolean, type: 'error' | 'success' | 'info', title: string, message: string }>({
-        isOpen: false,
-        type: 'info',
-        title: '',
-        message: ''
-    })
+    const { modalConfig, setModalConfig, callApi, closeModal } = useApiCall()
 
+    // Fetch invoices on mount
     useEffect(() => {
-        if (status === "unauthenticated") {
-            router.push("/auth/signin")
-        } else if (status === "authenticated") {
+        if (!isLoading) {
             fetchInvoices()
         }
-    }, [status])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoading])
 
     const fetchInvoices = async () => {
         try {
@@ -91,15 +89,7 @@ export default function HarvestInvoices() {
             const data = await res.json()
             if (res.ok) {
                 const errorCount = data.results.errors?.length || 0
-                let message = `Sync completed!\nCreated: ${data.results.created}\nUpdated: ${data.results.updated}`
-                if (errorCount > 0) {
-                    message += `\n\nErrors: ${errorCount}`
-                    if (errorCount <= 10) {
-                        message += '\n\n' + data.results.errors.join('\n')
-                    } else {
-                        message += `\n\nFirst 10 errors:\n${data.results.errors.slice(0, 10).join('\n')}\n\n... and ${errorCount - 10} more`
-                    }
-                }
+                const message = formatSyncResults(data.results)
                 setModalConfig({
                     isOpen: true,
                     type: errorCount > 0 ? 'info' : 'success',
@@ -127,23 +117,6 @@ export default function HarvestInvoices() {
         }
     }
 
-    const formatCurrency = (amount: number | null | undefined, currency: string | null | undefined): string => {
-        if (amount === null || amount === undefined) return 'N/A'
-        const currencyCode = currency || 'USD'
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: currencyCode
-        }).format(amount)
-    }
-
-    const formatDate = (date: string | null | undefined): string => {
-        if (!date) return 'N/A'
-        return new Date(date).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        })
-    }
 
     const getStateColor = (state: string | null | undefined): string => {
         switch (state?.toLowerCase()) {
@@ -160,167 +133,85 @@ export default function HarvestInvoices() {
         }
     }
 
-    const toggleExpand = (invoiceId: number) => {
-        const newExpanded = new Set(expandedInvoices)
-        if (newExpanded.has(invoiceId)) {
-            newExpanded.delete(invoiceId)
-        } else {
-            newExpanded.add(invoiceId)
-        }
-        setExpandedInvoices(newExpanded)
-    }
 
     const handleSingleSync = async (invoiceId: number) => {
-        setSyncingInvoices(prev => new Set(prev).add(invoiceId))
-        try {
-            const res = await fetch(`/api/harvest-invoices/${invoiceId}/sync`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-            })
-            const data = await res.json()
-            if (res.ok) {
-                setModalConfig({
-                    isOpen: true,
-                    type: 'success',
-                    title: 'Sync Successful',
-                    message: 'Invoice synced successfully from Harvest.'
-                })
-                await fetchInvoices()
-            } else {
-                setModalConfig({
-                    isOpen: true,
-                    type: 'error',
-                    title: 'Sync Failed',
-                    message: data.error || 'Failed to sync invoice'
-                })
-            }
-        } catch (error: any) {
-            setModalConfig({
-                isOpen: true,
-                type: 'error',
-                title: 'Sync Error',
-                message: 'An error occurred: ' + (error.message || 'Unknown error')
-            })
-        } finally {
-            setSyncingInvoices(prev => {
-                const newSet = new Set(prev)
-                newSet.delete(invoiceId)
-                return newSet
-            })
-        }
+        addSyncing(invoiceId)
+        await callApi({
+            url: `/api/harvest-invoices/${invoiceId}/sync`,
+            method: 'POST',
+            onSuccess: fetchInvoices,
+            successMessage: 'Invoice synced successfully from Harvest.',
+            successTitle: 'Sync Successful',
+            errorTitle: 'Sync Failed'
+        })
+        removeSyncing(invoiceId)
     }
 
     const handleCreateDeal = async (invoiceId: number) => {
-        setCreatingDeals(prev => {
-            const newSet = new Set(prev)
-            newSet.add(invoiceId)
-            return newSet
-        })
-
+        addCreating(invoiceId)
         try {
-            const res = await fetch(`/api/harvest-invoices/${invoiceId}/create-deal`, {
+            const result = await callApi({
+                url: `/api/harvest-invoices/${invoiceId}/create-deal`,
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                onSuccess: fetchInvoices,
+                successMessage: 'Deal created successfully',
+                successTitle: 'Deal Created',
+                errorTitle: 'Create Deal Failed'
             })
-            const data = await res.json()
-            if (res.ok) {
-                // Refresh the invoice list to show the updated deal ID
-                await fetchInvoices()
+            if (result.success && result.data) {
                 setModalConfig({
                     isOpen: true,
                     type: 'success',
                     title: 'Deal Created',
-                    message: `Successfully created HubSpot deal!\n\nDeal ID: ${data.dealId}\nCompany ID: ${data.companyId}${data.dealUrl ? `\n\nView deal: ${data.dealUrl}` : ''}`
-                })
-            } else {
-                setModalConfig({
-                    isOpen: true,
-                    type: 'error',
-                    title: 'Create Deal Failed',
-                    message: data.error || 'Failed to create deal'
+                    message: `Successfully created HubSpot deal!\n\nDeal ID: ${result.data.dealId}\nCompany ID: ${result.data.companyId}${result.data.dealUrl ? `\n\nView deal: ${result.data.dealUrl}` : ''}`
                 })
             }
-        } catch (error: any) {
-            setModalConfig({
-                isOpen: true,
-                type: 'error',
-                title: 'Error',
-                message: 'An error occurred: ' + (error.message || 'Unknown error')
-            })
         } finally {
-            setCreatingDeals(prev => {
-                const newSet = new Set(prev)
-                newSet.delete(invoiceId)
-                return newSet
-            })
+            removeCreating(invoiceId)
         }
     }
 
     const handleSyncDeal = async (invoiceId: number) => {
-        setSyncingDeals(prev => {
-            const newSet = new Set(prev)
-            newSet.add(invoiceId)
-            return newSet
-        })
-
+        addSyncingDeal(invoiceId)
         try {
-            const res = await fetch(`/api/harvest-invoices/${invoiceId}/sync-deal`, {
+            const result = await callApi({
+                url: `/api/harvest-invoices/${invoiceId}/sync-deal`,
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                successMessage: 'Deal synced successfully',
+                successTitle: 'Deal Synced',
+                errorTitle: 'Sync Deal Failed'
             })
-            const data = await res.json()
-            if (res.ok) {
+            if (result.success && result.data) {
                 setModalConfig({
                     isOpen: true,
                     type: 'success',
                     title: 'Deal Synced',
-                    message: `Successfully synced HubSpot deal!\n\nDeal ID: ${data.dealId}\nCompany ID: ${data.companyId}${data.dealUrl ? `\n\nView deal: ${data.dealUrl}` : ''}`
-                })
-            } else {
-                setModalConfig({
-                    isOpen: true,
-                    type: 'error',
-                    title: 'Sync Deal Failed',
-                    message: data.error || 'Failed to sync deal'
+                    message: `Successfully synced HubSpot deal!\n\nDeal ID: ${result.data.dealId}\nCompany ID: ${result.data.companyId}${result.data.dealUrl ? `\n\nView deal: ${result.data.dealUrl}` : ''}`
                 })
             }
-        } catch (error: any) {
-            setModalConfig({
-                isOpen: true,
-                type: 'error',
-                title: 'Error',
-                message: 'An error occurred: ' + (error.message || 'Unknown error')
-            })
         } finally {
-            setSyncingDeals(prev => {
-                const newSet = new Set(prev)
-                newSet.delete(invoiceId)
-                return newSet
-            })
+            removeSyncingDeal(invoiceId)
         }
     }
 
-    if (status === "loading" || !session) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-slate-100">Loading...</div>
+    if (isLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-slate-100">Loading...</div>
 
     // Filter invoices by search and mapping status
-    const filteredInvoices = invoices.filter(inv => {
-        // Filter by mapping status first
-        if (showOnlyNoMapping && inv.hasMapping !== false) {
-            return false
-        }
-        
-        // Then filter by search
-        if (!search.trim()) return true
-        const searchLower = search.toLowerCase()
-        const clientName = inv.clientName?.toLowerCase() || ''
-        const number = inv.number?.toLowerCase() || ''
-        const subject = inv.subject?.toLowerCase() || ''
-        const harvestId = inv.harvestId.toLowerCase()
-        return clientName.includes(searchLower) || 
-               number.includes(searchLower) || 
-               subject.includes(searchLower) ||
-               harvestId.includes(searchLower)
-    })
+    const searchFiltered = createSearchFilter(
+        invoices,
+        search,
+        (inv) => [
+            inv.clientName || '',
+            inv.number || '',
+            inv.subject || '',
+            inv.harvestId
+        ]
+    )
+    
+    const filteredInvoices = filterByCondition(
+        searchFiltered,
+        (inv) => !showOnlyNoMapping || inv.hasMapping === false
+    )
 
     return (
         <div className="min-h-screen bg-slate-900 font-sans">
@@ -471,11 +362,10 @@ export default function HarvestInvoices() {
                                                                 handleSingleSync(invoice.id)
                                                             }}
                                                             disabled={syncingInvoices.has(invoice.id) || syncing}
-                                                            className={`p-2 rounded-lg transition-colors ${
-                                                                syncingInvoices.has(invoice.id) || syncing
-                                                                    ? 'text-slate-500 cursor-not-allowed'
-                                                                    : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-900/20'
-                                                            }`}
+                                                            className={getActionButtonClasses(
+                                                                syncingInvoices.has(invoice.id) || syncing,
+                                                                'emerald'
+                                                            )}
                                                             title="Sync this invoice from Harvest"
                                                         >
                                                             {syncingInvoices.has(invoice.id) ? (
@@ -496,11 +386,10 @@ export default function HarvestInvoices() {
                                                                     handleSyncDeal(invoice.id)
                                                                 }}
                                                                 disabled={syncingDeals.has(invoice.id) || invoice.state?.toLowerCase() === 'draft'}
-                                                                className={`p-2 rounded-lg transition-colors ${
-                                                                    syncingDeals.has(invoice.id) || invoice.state?.toLowerCase() === 'draft'
-                                                                        ? 'text-slate-500 cursor-not-allowed'
-                                                                        : 'text-blue-400 hover:text-blue-600 hover:bg-blue-900/20'
-                                                                }`}
+                                                                className={getActionButtonClasses(
+                                                                    syncingDeals.has(invoice.id) || invoice.state?.toLowerCase() === 'draft',
+                                                                    'blue'
+                                                                )}
                                                                 title={invoice.state?.toLowerCase() === 'draft' ? 'Cannot sync deal for draft invoices' : 'Sync HubSpot deal with invoice data'}
                                                             >
                                                                 {syncingDeals.has(invoice.id) ? (
@@ -521,11 +410,10 @@ export default function HarvestInvoices() {
                                                                     handleCreateDeal(invoice.id)
                                                                 }}
                                                                 disabled={creatingDeals.has(invoice.id) || invoice.state?.toLowerCase() === 'draft' || invoice.hasMapping === false}
-                                                                className={`p-2 rounded-lg transition-colors ${
-                                                                    creatingDeals.has(invoice.id) || invoice.state?.toLowerCase() === 'draft' || invoice.hasMapping === false
-                                                                        ? 'text-slate-500 cursor-not-allowed'
-                                                                        : 'text-green-400 hover:text-green-600 hover:bg-green-900/20'
-                                                                }`}
+                                                                className={getActionButtonClasses(
+                                                                    creatingDeals.has(invoice.id) || invoice.state?.toLowerCase() === 'draft' || invoice.hasMapping === false,
+                                                                    'green'
+                                                                )}
                                                                 title={
                                                                     invoice.hasMapping === false
                                                                         ? 'Cannot create deal: No HubSpot to Harvest company mapping exists. Please create a mapping first.'
@@ -626,7 +514,7 @@ export default function HarvestInvoices() {
             {/* Notification Results Modal */}
             <ErrorModal
                 isOpen={modalConfig.isOpen}
-                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                onClose={closeModal}
                 type={modalConfig.type}
                 title={modalConfig.title}
                 message={modalConfig.message}

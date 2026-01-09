@@ -1,9 +1,10 @@
 import Head from 'next/head'
 import { useState, useEffect } from 'react'
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/router"
 import Header from '../../components/Header'
 import ErrorModal from '../../components/ErrorModal'
+import { useAuthGuard } from '../../lib/hooks/useAuthGuard'
+import { useApiCall } from '../../lib/hooks/useApiCall'
+import { formatSyncResults } from '../../lib/utils/formatHelpers'
 
 type SlackChannel = {
     id: number
@@ -18,8 +19,7 @@ type SlackChannel = {
 }
 
 export default function SlackChannels() {
-    const { data: session, status } = useSession()
-    const router = useRouter()
+    const { isLoading } = useAuthGuard()
     const [channels, setChannels] = useState<SlackChannel[]>([])
     const [form, setForm] = useState({ channelId: '', name: '', isClient: false })
     const [loading, setLoading] = useState(true)
@@ -28,20 +28,14 @@ export default function SlackChannels() {
     const [syncing, setSyncing] = useState(false)
     const [search, setSearch] = useState('')
     const [showSyncConfirm, setShowSyncConfirm] = useState(false)
-    const [modalConfig, setModalConfig] = useState<{ isOpen: boolean, type: 'error' | 'success' | 'info', title: string, message: string }>({
-        isOpen: false,
-        type: 'info',
-        title: '',
-        message: ''
-    })
+    const { modalConfig, setModalConfig, closeModal } = useApiCall()
 
     useEffect(() => {
-        if (status === "unauthenticated") {
-            router.push("/auth/signin")
-        } else if (status === "authenticated") {
+        if (!isLoading) {
             fetchChannels()
         }
-    }, [status])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoading])
 
     const fetchChannels = async () => {
         try {
@@ -199,15 +193,7 @@ export default function SlackChannels() {
             const data = await res.json()
             if (res.ok) {
                 const errorCount = data.results.errors?.length || 0
-                let message = `Sync completed!\nCreated: ${data.results.created}\nUpdated: ${data.results.updated}`
-                if (errorCount > 0) {
-                    message += `\n\nErrors: ${errorCount}`
-                    if (errorCount <= 10) {
-                        message += '\n\n' + data.results.errors.join('\n')
-                    } else {
-                        message += `\n\nFirst 10 errors:\n${data.results.errors.slice(0, 10).join('\n')}\n\n... and ${errorCount - 10} more`
-                    }
-                }
+                const message = formatSyncResults(data.results)
                 setModalConfig({
                     isOpen: true,
                     type: errorCount > 0 ? 'info' : 'success',
@@ -235,7 +221,7 @@ export default function SlackChannels() {
         }
     }
 
-    if (status === "loading" || !session) return <div>Loading...</div>
+    if (isLoading) return <div>Loading...</div>
 
     return (
         <div className="min-h-screen bg-slate-900 font-sans">
@@ -543,7 +529,7 @@ export default function SlackChannels() {
             {/* Notification Results Modal */}
             <ErrorModal
                 isOpen={modalConfig.isOpen}
-                onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+                onClose={closeModal}
                 type={modalConfig.type}
                 title={modalConfig.title}
                 message={modalConfig.message}
