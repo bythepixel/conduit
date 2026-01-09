@@ -27,6 +27,7 @@ type HarvestInvoice = {
     paidDate?: string
     paymentTerm?: string
     hubspotDealId?: string
+    hasMapping?: boolean
     createdAt: string
     updatedAt: string
 }
@@ -403,6 +404,13 @@ export default function HarvestInvoices() {
                                                     {invoice.clientId && (
                                                         <div className="text-xs text-slate-500 font-mono">{invoice.clientId}</div>
                                                     )}
+                                                    {invoice.hasMapping === false && (
+                                                        <div className="mt-1">
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-900/30 text-red-400 border border-red-700/50">
+                                                                No Company Mapping
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="text-sm font-semibold text-slate-100">
@@ -496,13 +504,19 @@ export default function HarvestInvoices() {
                                                                     e.stopPropagation()
                                                                     handleCreateDeal(invoice.id)
                                                                 }}
-                                                                disabled={creatingDeals.has(invoice.id) || invoice.state?.toLowerCase() === 'draft'}
+                                                                disabled={creatingDeals.has(invoice.id) || invoice.state?.toLowerCase() === 'draft' || invoice.hasMapping === false}
                                                                 className={`p-2 rounded-lg transition-colors ${
-                                                                    creatingDeals.has(invoice.id) || invoice.state?.toLowerCase() === 'draft'
+                                                                    creatingDeals.has(invoice.id) || invoice.state?.toLowerCase() === 'draft' || invoice.hasMapping === false
                                                                         ? 'text-slate-500 cursor-not-allowed'
                                                                         : 'text-green-400 hover:text-green-600 hover:bg-green-900/20'
                                                                 }`}
-                                                                title={invoice.state?.toLowerCase() === 'draft' ? 'Cannot create deal for draft invoices' : 'Create HubSpot deal from this invoice'}
+                                                                title={
+                                                                    invoice.hasMapping === false
+                                                                        ? 'Cannot create deal: No HubSpot to Harvest company mapping exists. Please create a mapping first.'
+                                                                        : invoice.state?.toLowerCase() === 'draft' 
+                                                                            ? 'Cannot create deal for draft invoices' 
+                                                                            : 'Create HubSpot deal from this invoice'
+                                                                }
                                                             >
                                                                 {creatingDeals.has(invoice.id) ? (
                                                                     <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

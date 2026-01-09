@@ -224,8 +224,9 @@ export async function createDealFromHarvestInvoice(invoiceId: number): Promise<{
             throw new Error(`Harvest company with ID "${harvestClientId}" not found in database. Please sync Harvest companies first.`)
         }
 
+        // CRITICAL: Check for HubSpot to Harvest company mapping before proceeding
         if (!harvestCompany.mappings || harvestCompany.mappings.length === 0) {
-            throw new Error(`Harvest company "${harvestCompany.name || harvestCompany.harvestId}" is not mapped to any HubSpot company. Please create a mapping first.`)
+            throw new Error(`Cannot create deal: Harvest company "${harvestCompany.name || harvestCompany.harvestId}" is not mapped to any HubSpot company. Please create a HubSpot to Harvest company mapping first.`)
         }
 
         // Use the first mapping (if multiple exist, use the first one)
@@ -448,8 +449,9 @@ export async function syncDealFromHarvestInvoice(invoiceId: number): Promise<{ d
             throw new Error(`Harvest company with ID "${harvestClientId}" not found in database. Please sync Harvest companies first.`)
         }
 
+        // CRITICAL: Check for HubSpot to Harvest company mapping before proceeding
         if (!harvestCompany.mappings || harvestCompany.mappings.length === 0) {
-            throw new Error(`Harvest company "${harvestCompany.name || harvestCompany.harvestId}" is not mapped to any HubSpot company. Please create a mapping first.`)
+            throw new Error(`Cannot sync deal: Harvest company "${harvestCompany.name || harvestCompany.harvestId}" is not mapped to any HubSpot company. Please create a HubSpot to Harvest company mapping first.`)
         }
 
         const mapping = harvestCompany.mappings[0]
