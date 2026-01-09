@@ -46,8 +46,8 @@ describe('/api/hubspot-companies/sync', () => {
     it('should sync new companies from HubSpot', async () => {
       const mockResponse = {
         results: [
-          { id: '123', properties: { name: 'Company 1' } },
-          { id: '456', properties: { name: 'Company 2' } },
+          { id: '123', properties: { name: 'Company 1', hubspot_owner_id: 'owner123' } },
+          { id: '456', properties: { name: 'Company 2', hubspot_owner_id: null } },
         ],
         paging: {},
       }
@@ -66,7 +66,7 @@ describe('/api/hubspot-companies/sync', () => {
       expect(mockHubSpotClient.crm.companies.basicApi.getPage).toHaveBeenCalledWith(
         100,
         undefined,
-        ['name']
+        ['name', 'hubspot_owner_id']
       )
       expect(res.status).toHaveBeenCalledWith(200)
       expect(res.json).toHaveBeenCalledWith({
@@ -117,13 +117,13 @@ describe('/api/hubspot-companies/sync', () => {
         1,
         100,
         undefined,
-        ['name']
+        ['name', 'hubspot_owner_id']
       )
       expect(mockHubSpotClient.crm.companies.basicApi.getPage).toHaveBeenNthCalledWith(
         2,
         100,
         'next-page-token',
-        ['name']
+        ['name', 'hubspot_owner_id']
       )
       expect(res.json).toHaveBeenCalledWith({
         message: 'Sync completed',
@@ -139,7 +139,7 @@ describe('/api/hubspot-companies/sync', () => {
     it('should update existing companies when names change', async () => {
       const mockResponse = {
         results: [
-          { id: '123', properties: { name: 'Company Updated' } },
+          { id: '123', properties: { name: 'Company Updated', hubspot_owner_id: 'owner123' } },
         ],
         paging: {},
       }
@@ -148,6 +148,7 @@ describe('/api/hubspot-companies/sync', () => {
         id: 1,
         companyId: '123',
         name: 'Company Original',
+        ownerId: null,
       }
 
       mockHubSpotClient.crm.companies.basicApi.getPage.mockResolvedValue(mockResponse as any)
@@ -163,7 +164,7 @@ describe('/api/hubspot-companies/sync', () => {
 
       expect(mockPrisma.hubspotCompany.update).toHaveBeenCalledWith({
         where: { id: 1 },
-        data: { name: 'Company Updated' },
+        data: { name: 'Company Updated', ownerId: 'owner123' },
       })
       expect(res.json).toHaveBeenCalledWith({
         message: 'Sync completed',
@@ -179,7 +180,7 @@ describe('/api/hubspot-companies/sync', () => {
     it('should not update companies when names are unchanged', async () => {
       const mockResponse = {
         results: [
-          { id: '123', properties: { name: 'Company 1' } },
+          { id: '123', properties: { name: 'Company 1', hubspot_owner_id: null } },
         ],
         paging: {},
       }
@@ -188,6 +189,7 @@ describe('/api/hubspot-companies/sync', () => {
         id: 1,
         companyId: '123',
         name: 'Company 1',
+        ownerId: null,
       }
 
       mockHubSpotClient.crm.companies.basicApi.getPage.mockResolvedValue(mockResponse as any)
@@ -235,6 +237,7 @@ describe('/api/hubspot-companies/sync', () => {
         data: {
           companyId: '123',
           name: null,
+          ownerId: null,
         },
       })
       expect(res.status).toHaveBeenCalledWith(200)
