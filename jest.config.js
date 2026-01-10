@@ -21,7 +21,7 @@ const customJestConfig = {
     '<rootDir>/__tests__/utils/', // Exclude utility files from being treated as tests
   ],
   transformIgnorePatterns: [
-    'node_modules/(?!(jose|@panva/hkdf|oidc-token-hash|oauth4webapi)/)',
+    'node_modules/(?!(jose|@panva/hkdf|oidc-token-hash|oauth4webapi|@prisma)/)',
   ],
   collectCoverageFrom: [
     'lib/**/*.{ts,tsx}',

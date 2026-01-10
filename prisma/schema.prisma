@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum Cadence {
@@ -176,10 +175,8 @@ model HarvestInvoice {
   purchaseOrder     String?   // Purchase order number
   amount            Decimal?  @db.Decimal(10, 2) // Total amount
   dueAmount         Decimal?  @db.Decimal(10, 2) // Amount due
-  tax               Decimal?  @db.Decimal(10, 2) // Tax amount
-  taxAmount         Decimal?  @db.Decimal(10, 2) // Tax amount (alternative field)
-  discount          Decimal?  @db.Decimal(10, 2) // Discount amount
-  discountAmount    Decimal?  @db.Decimal(10, 2) // Discount amount (alternative field)
+  taxAmount         Decimal?  @db.Decimal(10, 2) // Tax amount
+  discountAmount    Decimal?  @db.Decimal(10, 2) // Discount amount
   subject           String?   // Invoice subject
   notes             String?   @db.Text // Invoice notes
   currency          String?   // Currency code
