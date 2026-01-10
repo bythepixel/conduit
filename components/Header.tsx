@@ -97,19 +97,17 @@ export default function Header({ action }: HeaderProps) {
                 <div className="flex items-center justify-between h-16">
                     {/* Logo */}
                     <div className="flex-shrink-0">
-                        <Link href="/">
-                            <a className="block group flex items-center gap-3">
-                                <div className="flex-shrink-0">
-                                    <img 
-                                        src="/conduit-logo.svg" 
-                                        alt="Conduit Logo" 
-                                        className="w-8 h-8 sm:w-10 sm:h-10 group-hover:opacity-80 transition-opacity"
-                                    />
-                                </div>
-                                <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 via-pink-500 via-blue-500 to-cyan-500 bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient group-hover:opacity-80 transition-opacity">
-                                    Conduit
-                                </h1>
-                            </a>
+                        <Link href="/" className="block group flex items-center gap-3">
+                            <div className="flex-shrink-0">
+                                <img 
+                                    src="/conduit-logo.svg" 
+                                    alt="Conduit Logo" 
+                                    className="w-8 h-8 sm:w-10 sm:h-10 group-hover:opacity-80 transition-opacity"
+                                />
+                            </div>
+                            <h1 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 via-pink-500 via-blue-500 to-cyan-500 bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient group-hover:opacity-80 transition-opacity">
+                                Conduit
+                            </h1>
                         </Link>
                     </div>
 
@@ -143,50 +141,40 @@ export default function Header({ action }: HeaderProps) {
                             </button>
                             {slackyHubOpen && (
                                 <div className="absolute top-full left-0 mt-1 w-48 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden z-50">
-                                    <Link href="/">
-                                        <a className={`block px-4 py-2 text-sm transition-colors ${
-                                            isActive('/')
-                                                ? 'bg-slate-700 text-indigo-400'
-                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-                                        }`}>
-                                            Mappings
-                                        </a>
+                                    <Link href="/" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Mappings
                                     </Link>
-                                    <Link href="/admin/prompts">
-                                        <a className={`block px-4 py-2 text-sm transition-colors ${
-                                            isActive('/admin/prompts')
-                                                ? 'bg-slate-700 text-indigo-400'
-                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-                                        }`}>
-                                            Prompts
-                                        </a>
+                                    <Link href="/admin/prompts" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/prompts')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Prompts
                                     </Link>
-                                    <Link href="/admin/slack-channels">
-                                        <a className={`block px-4 py-2 text-sm transition-colors ${
-                                            isActive('/admin/slack-channels')
-                                                ? 'bg-slate-700 text-indigo-400'
-                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-                                        }`}>
-                                            Channels
-                                        </a>
+                                    <Link href="/admin/slack-channels" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/slack-channels')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Channels
                                     </Link>
-                                    <Link href="/admin/hubspot-companies">
-                                        <a className={`block px-4 py-2 text-sm transition-colors ${
-                                            isActive('/admin/hubspot-companies')
-                                                ? 'bg-slate-700 text-indigo-400'
-                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-                                        }`}>
-                                            Companies
-                                        </a>
+                                    <Link href="/admin/hubspot-companies" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/hubspot-companies')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Companies
                                     </Link>
-                                    <Link href="/admin/cron-logs">
-                                        <a className={`block px-4 py-2 text-sm transition-colors ${
-                                            isActive('/admin/cron-logs')
-                                                ? 'bg-slate-700 text-indigo-400'
-                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-                                        }`}>
-                                            Cron Logs
-                                        </a>
+                                    <Link href="/admin/cron-logs" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/cron-logs')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Cron Logs
                                     </Link>
                                 </div>
                             )}
@@ -220,32 +208,26 @@ export default function Header({ action }: HeaderProps) {
                             </button>
                             {fireSpotOpen && (
                                 <div className="absolute top-full left-0 mt-1 w-48 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden z-50">
-                                    <Link href="/admin/meeting-notes">
-                                        <a className={`block px-4 py-2 text-sm transition-colors ${
-                                            isActive('/admin/meeting-notes')
-                                                ? 'bg-slate-700 text-indigo-400'
-                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-                                        }`}>
-                                            Meeting Notes
-                                        </a>
+                                    <Link href="/admin/meeting-notes" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/meeting-notes')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Meeting Notes
                                     </Link>
-                                    <Link href="/admin/hubspot-companies">
-                                        <a className={`block px-4 py-2 text-sm transition-colors ${
-                                            isActive('/admin/hubspot-companies')
-                                                ? 'bg-slate-700 text-indigo-400'
-                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-                                        }`}>
-                                            Companies
-                                        </a>
+                                    <Link href="/admin/hubspot-companies" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/hubspot-companies')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Companies
                                     </Link>
-                                    <Link href="/admin/fire-hook-logs">
-                                        <a className={`block px-4 py-2 text-sm transition-colors ${
-                                            isActive('/admin/fire-hook-logs')
-                                                ? 'bg-slate-700 text-indigo-400'
-                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-                                        }`}>
-                                            Fire Hook Logs
-                                        </a>
+                                    <Link href="/admin/fire-hook-logs" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/fire-hook-logs')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Fire Hook Logs
                                     </Link>
                                 </div>
                             )}
@@ -279,54 +261,44 @@ export default function Header({ action }: HeaderProps) {
                             </button>
                             {hubvestOpen && (
                                 <div className="absolute top-full left-0 mt-1 w-48 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden z-50">
-                                    <Link href="/admin/hubspot-companies">
-                                        <a className={`block px-4 py-2 text-sm transition-colors ${
-                                            isActive('/admin/hubspot-companies')
-                                                ? 'bg-slate-700 text-indigo-400'
-                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-                                        }`}>
-                                            HubSpot Companies
-                                        </a>
+                                    <Link href="/admin/hubspot-companies" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/hubspot-companies')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        HubSpot Companies
                                     </Link>
-                                    <Link href="/admin/harvest-invoices">
-                                        <a className={`block px-4 py-2 text-sm transition-colors ${
-                                            isActive('/admin/harvest-invoices')
-                                                ? 'bg-slate-700 text-indigo-400'
-                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-                                        }`}>
-                                            Harvest Invoices
-                                        </a>
+                                    <Link href="/admin/harvest-invoices" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/harvest-invoices')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Harvest Invoices
                                     </Link>
-                                    <Link href="/admin/harvest-company-mappings">
-                                        <a className={`block px-4 py-2 text-sm transition-colors ${
-                                            isActive('/admin/harvest-company-mappings')
-                                                ? 'bg-slate-700 text-indigo-400'
-                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-                                        }`}>
-                                            Company Mappings
-                                        </a>
+                                    <Link href="/admin/harvest-company-mappings" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/harvest-company-mappings')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Company Mappings
                                     </Link>
-                                    <Link href="/admin/harvest-invoice-cron-logs">
-                                        <a className={`block px-4 py-2 text-sm transition-colors ${
-                                            isActive('/admin/harvest-invoice-cron-logs')
-                                                ? 'bg-slate-700 text-indigo-400'
-                                                : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
-                                        }`}>
-                                            Cron Logs
-                                        </a>
+                                    <Link href="/admin/harvest-invoice-cron-logs" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/harvest-invoice-cron-logs')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Cron Logs
                                     </Link>
                                 </div>
                             )}
                         </div>
 
                         {/* Users - No dropdown */}
-                        <Link href="/admin/users">
-                            <a className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${isActive('/admin/users')
-                                ? 'bg-slate-600 text-indigo-400 shadow-sm'
-                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-600/50'
-                                }`}>
-                                Users
-                            </a>
+                        <Link href="/admin/users" className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${isActive('/admin/users')
+                            ? 'bg-slate-600 text-indigo-400 shadow-sm'
+                            : 'text-slate-300 hover:text-slate-100 hover:bg-slate-600/50'
+                            }`}>
+                            Users
                         </Link>
                     </nav>
 
@@ -428,50 +400,40 @@ export default function Header({ action }: HeaderProps) {
                                 </button>
                                 {mobileSlackyHubOpen && (
                                     <div className="pl-4 mt-1 space-y-1">
-                                        <Link href="/">
-                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
-                                                isActive('/')
-                                                    ? 'bg-slate-700 text-indigo-400'
-                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                            }`}>
-                                                Slack Mappings
-                                            </a>
+                                        <Link href="/" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Slack Mappings
                                         </Link>
-                                        <Link href="/admin/prompts">
-                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
-                                                isActive('/admin/prompts')
-                                                    ? 'bg-slate-700 text-indigo-400'
-                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                            }`}>
-                                                Prompts
-                                            </a>
+                                        <Link href="/admin/prompts" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/prompts')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Prompts
                                         </Link>
-                                        <Link href="/admin/slack-channels">
-                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
-                                                isActive('/admin/slack-channels')
-                                                    ? 'bg-slate-700 text-indigo-400'
-                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                            }`}>
-                                                Channels
-                                            </a>
+                                        <Link href="/admin/slack-channels" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/slack-channels')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Channels
                                         </Link>
-                                        <Link href="/admin/hubspot-companies">
-                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
-                                                isActive('/admin/hubspot-companies')
-                                                    ? 'bg-slate-700 text-indigo-400'
-                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                            }`}>
-                                                Companies
-                                            </a>
+                                        <Link href="/admin/hubspot-companies" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/hubspot-companies')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Companies
                                         </Link>
-                                        <Link href="/admin/cron-logs">
-                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
-                                                isActive('/admin/cron-logs')
-                                                    ? 'bg-slate-700 text-indigo-400'
-                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                            }`}>
-                                                Cron Logs
-                                            </a>
+                                        <Link href="/admin/cron-logs" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/cron-logs')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Cron Logs
                                         </Link>
                                     </div>
                                 )}
@@ -505,32 +467,26 @@ export default function Header({ action }: HeaderProps) {
                                 </button>
                                 {mobileFireSpotOpen && (
                                     <div className="pl-4 mt-1 space-y-1">
-                                        <Link href="/admin/meeting-notes">
-                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
-                                                isActive('/admin/meeting-notes')
-                                                    ? 'bg-slate-700 text-indigo-400'
-                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                            }`}>
-                                                Meeting Notes
-                                            </a>
+                                        <Link href="/admin/meeting-notes" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/meeting-notes')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Meeting Notes
                                         </Link>
-                                        <Link href="/admin/hubspot-companies">
-                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
-                                                isActive('/admin/hubspot-companies')
-                                                    ? 'bg-slate-700 text-indigo-400'
-                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                            }`}>
-                                                Companies
-                                            </a>
+                                        <Link href="/admin/hubspot-companies" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/hubspot-companies')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Companies
                                         </Link>
-                                        <Link href="/admin/fire-hook-logs">
-                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
-                                                isActive('/admin/fire-hook-logs')
-                                                    ? 'bg-slate-700 text-indigo-400'
-                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                            }`}>
-                                                Fire Hook Logs
-                                            </a>
+                                        <Link href="/admin/fire-hook-logs" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/fire-hook-logs')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Fire Hook Logs
                                         </Link>
                                     </div>
                                 )}
@@ -564,54 +520,44 @@ export default function Header({ action }: HeaderProps) {
                                 </button>
                                 {mobileHubvestOpen && (
                                     <div className="pl-4 mt-1 space-y-1">
-                                        <Link href="/admin/hubspot-companies">
-                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
-                                                isActive('/admin/hubspot-companies')
-                                                    ? 'bg-slate-700 text-indigo-400'
-                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                            }`}>
-                                                HubSpot Companies
-                                            </a>
+                                        <Link href="/admin/hubspot-companies" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/hubspot-companies')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            HubSpot Companies
                                         </Link>
-                                        <Link href="/admin/harvest-invoices">
-                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
-                                                isActive('/admin/harvest-invoices')
-                                                    ? 'bg-slate-700 text-indigo-400'
-                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                            }`}>
-                                                Harvest Invoices
-                                            </a>
+                                        <Link href="/admin/harvest-invoices" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/harvest-invoices')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Harvest Invoices
                                         </Link>
-                                        <Link href="/admin/harvest-company-mappings">
-                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
-                                                isActive('/admin/harvest-company-mappings')
-                                                    ? 'bg-slate-700 text-indigo-400'
-                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                            }`}>
-                                                Company Mappings
-                                            </a>
+                                        <Link href="/admin/harvest-company-mappings" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/harvest-company-mappings')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Company Mappings
                                         </Link>
-                                        <Link href="/admin/harvest-invoice-cron-logs">
-                                            <a className={`block px-4 py-2 rounded-lg text-sm transition-all ${
-                                                isActive('/admin/harvest-invoice-cron-logs')
-                                                    ? 'bg-slate-700 text-indigo-400'
-                                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                            }`}>
-                                                Cron Logs
-                                            </a>
+                                        <Link href="/admin/harvest-invoice-cron-logs" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/harvest-invoice-cron-logs')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Cron Logs
                                         </Link>
                                     </div>
                                 )}
                             </div>
 
                             {/* Users - No dropdown */}
-                            <Link href="/admin/users">
-                                <a className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${isActive('/admin/users')
-                                    ? 'bg-slate-700 text-indigo-400'
-                                    : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
-                                    }`}>
-                                    Users
-                                </a>
+                            <Link href="/admin/users" className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${isActive('/admin/users')
+                                ? 'bg-slate-700 text-indigo-400'
+                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                }`}>
+                                Users
                             </Link>
                             {action && (
                                 <div className="px-4 py-3 border-t border-slate-700 mt-2">
