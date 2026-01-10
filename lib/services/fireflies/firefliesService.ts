@@ -247,19 +247,22 @@ export class FirefliesService {
 
             const transcriptUrl = transcript.transcript_url || null
 
-            // Handle notes - use short_summary from the API
+            // Handle notes - use short_summary from the API (same as Fetch Notes button)
             let notesText: string | null = null
             if (transcript.summary?.short_summary) {
                 notesText = transcript.summary.short_summary
+                console.log(`[FirefliesService] Found notes (short_summary) for meeting ${meetingId}: ${notesText?.substring(0, 100)}...`)
+            } else {
+                console.log(`[FirefliesService] No short_summary found for meeting ${meetingId}`)
             }
 
             // Look for a matching HubSpot company based on the first word of the title
             const hubspotCompanyId = await this.findMatchingCompany(transcript.title)
 
-            // Create or Update MeetingNote
+            // Create or Update MeetingNote (same logic as Fetch Notes button)
             const noteData: any = {
                 title: transcript.title || null,
-                notes: notesText,
+                notes: notesText, // Save notes field (short_summary)
                 transcriptUrl: transcriptUrl,
                 summary: summaryText,
                 participants: participants,
@@ -267,6 +270,13 @@ export class FirefliesService {
                 meetingDate: meetingDate,
                 hubspotCompanyId: hubspotCompanyId ?? null,
             }
+            
+            console.log(`[FirefliesService] Saving meeting note data for ${meetingId}:`, {
+                hasNotes: !!notesText,
+                notesLength: notesText?.length || 0,
+                hasSummary: !!summaryText,
+                hasTitle: !!transcript.title
+            })
 
             // Check if meeting note already exists
             const existingNote = await prisma.meetingNote.findUnique({
@@ -275,19 +285,23 @@ export class FirefliesService {
 
             let meetingNote
             if (existingNote) {
-                // Update existing note
+                // Update existing note (same as Fetch Notes button - updates all fields including notes)
+                console.log(`[FirefliesService] Updating existing meeting note ${existingNote.id} for meeting ${meetingId}`)
                 meetingNote = await prisma.meetingNote.update({
                     where: { id: existingNote.id },
-                    data: noteData
+                    data: noteData // This includes notes field
                 })
+                console.log(`[FirefliesService] Successfully updated meeting note ${meetingNote.id} with notes: ${!!meetingNote.notes}`)
             } else {
-                // Create new note
+                // Create new note (same as Fetch Notes button - creates with all fields including notes)
+                console.log(`[FirefliesService] Creating new meeting note for meeting ${meetingId}`)
                 meetingNote = await prisma.meetingNote.create({
                     data: {
                         meetingId: meetingId,
-                        ...noteData
+                        ...noteData // This includes notes field
                     }
                 })
+                console.log(`[FirefliesService] Successfully created meeting note ${meetingNote.id} with notes: ${!!meetingNote.notes}`)
             }
 
             // Auto-sync to HubSpot if:
