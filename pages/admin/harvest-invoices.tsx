@@ -18,9 +18,7 @@ type HarvestInvoice = {
     purchaseOrder?: string
     amount?: number
     dueAmount?: number
-    tax?: number
     taxAmount?: number
-    discount?: number
     discountAmount?: number
     subject?: string
     notes?: string

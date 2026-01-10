@@ -1,16 +1,15 @@
-import { Configuration, OpenAIApi } from 'openai'
+import OpenAI from 'openai'
 import { getRequiredEnv } from '../../config/env'
 
-let openaiClient: OpenAIApi | null = null
+let openaiClient: OpenAI | null = null
 
 /**
  * Gets or creates the OpenAI API client instance
  */
-function getOpenAIClient(): OpenAIApi {
+function getOpenAIClient(): OpenAI {
     if (!openaiClient) {
         const apiKey = getRequiredEnv('OPENAI_API_KEY')
-        const configuration = new Configuration({ apiKey })
-        openaiClient = new OpenAIApi(configuration)
+        openaiClient = new OpenAI({ apiKey })
     }
     return openaiClient
 }
@@ -30,7 +29,7 @@ export async function generateSummary(
     try {
         console.log(`[OpenAI API] Creating chat completion${channelName ? ` for ${channelName}` : ''}`)
         const openai = getOpenAIClient()
-        const completion = await openai.createChatCompletion({
+        const completion = await openai.chat.completions.create({
             messages: [
                 { role: 'system', content: prompt },
                 { role: 'user', content: messagesText }
@@ -39,19 +38,20 @@ export async function generateSummary(
         })
         
         console.log(`[OpenAI API] Successfully generated summary`)
-        const summary = completion.data.choices[0].message?.content || ''
+        const summary = completion.choices[0]?.message?.content || ''
         const channelLabel = channelName || 'channel'
         return `Daily Slack Summary for ${channelLabel}:\n\n${summary}`
     } catch (openaiErr: any) {
-        const errorCode = openaiErr.response?.status
-        const errorMsg = openaiErr.response?.data?.error?.message || openaiErr.message || 'Unknown error'
+        // OpenAI v6 error structure: status, message, code, param, type
+        const errorCode = openaiErr.status || openaiErr.response?.status
+        const errorMsg = openaiErr.message || openaiErr.response?.data?.error?.message || 'Unknown error'
         
         if (errorCode === 429 || errorMsg.toLowerCase().includes('rate limit')) {
-            console.error(`[OpenAI API] Rate limit error: ${errorMsg}`, openaiErr.response?.data)
+            console.error(`[OpenAI API] Rate limit error: ${errorMsg}`, openaiErr)
             throw new Error(`OpenAI API Rate Limit Error: ${errorMsg}. Will retry automatically.`)
         }
         
-        console.error(`[OpenAI API] Error creating chat completion:`, openaiErr.response?.data || openaiErr)
+        console.error(`[OpenAI API] Error creating chat completion:`, openaiErr)
         throw new Error(`OpenAI API Error: ${errorMsg}`)
     }
 }

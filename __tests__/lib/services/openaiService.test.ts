@@ -7,11 +7,10 @@ jest.mock('../../../lib/config/env', () => ({
   getRequiredEnv: jest.fn(() => 'test-key'),
 }))
 
-// Mock OpenAI
-jest.mock('openai', () => ({
-  Configuration: jest.fn().mockImplementation(() => ({})),
-  OpenAIApi: jest.fn().mockImplementation(() => mockOpenAIClient),
-}))
+// Mock OpenAI (v6 structure - default export)
+jest.mock('openai', () => {
+  return jest.fn().mockImplementation(() => mockOpenAIClient)
+})
 
 describe('openaiService', () => {
   beforeEach(() => {
@@ -21,18 +20,16 @@ describe('openaiService', () => {
   describe('generateSummary', () => {
     it('should generate summary successfully with custom prompt', async () => {
       const mockCompletion = {
-        data: {
-          choices: [
-            {
-              message: {
-                content: 'This is a test summary of the conversation.',
-              },
+        choices: [
+          {
+            message: {
+              content: 'This is a test summary of the conversation.',
             },
-          ],
-        },
+          },
+        ],
       }
 
-      mockOpenAIClient.createChatCompletion.mockResolvedValue(mockCompletion)
+      mockOpenAIClient.chat.completions.create.mockResolvedValue(mockCompletion)
 
       const result = await generateSummary(
         'User1: Hello\nUser2: Hi there',
@@ -42,7 +39,7 @@ describe('openaiService', () => {
 
       expect(result).toContain('Daily Slack Summary for test-channel')
       expect(result).toContain('This is a test summary')
-      expect(mockOpenAIClient.createChatCompletion).toHaveBeenCalledWith({
+      expect(mockOpenAIClient.chat.completions.create).toHaveBeenCalledWith({
         messages: [
           { role: 'system', content: 'Custom system prompt' },
           { role: 'user', content: 'User1: Hello\nUser2: Hi there' },
@@ -53,22 +50,20 @@ describe('openaiService', () => {
 
     it('should use default prompt when none provided', async () => {
       const mockCompletion = {
-        data: {
-          choices: [
-            {
-              message: {
-                content: 'Summary text',
-              },
+        choices: [
+          {
+            message: {
+              content: 'Summary text',
             },
-          ],
-        },
+          },
+        ],
       }
 
-      mockOpenAIClient.createChatCompletion.mockResolvedValue(mockCompletion)
+      mockOpenAIClient.chat.completions.create.mockResolvedValue(mockCompletion)
 
       await generateSummary('User1: Hello')
 
-      expect(mockOpenAIClient.createChatCompletion).toHaveBeenCalledWith(
+      expect(mockOpenAIClient.chat.completions.create).toHaveBeenCalledWith(
         expect.objectContaining({
           messages: expect.arrayContaining([
             expect.objectContaining({
@@ -82,18 +77,16 @@ describe('openaiService', () => {
 
     it('should use channel name in summary', async () => {
       const mockCompletion = {
-        data: {
-          choices: [
-            {
-              message: {
-                content: 'Summary',
-              },
+        choices: [
+          {
+            message: {
+              content: 'Summary',
             },
-          ],
-        },
+          },
+        ],
       }
 
-      mockOpenAIClient.createChatCompletion.mockResolvedValue(mockCompletion)
+      mockOpenAIClient.chat.completions.create.mockResolvedValue(mockCompletion)
 
       const result = await generateSummary('Messages', undefined, 'my-channel')
 
@@ -102,18 +95,16 @@ describe('openaiService', () => {
 
     it('should use default channel label when no channel name', async () => {
       const mockCompletion = {
-        data: {
-          choices: [
-            {
-              message: {
-                content: 'Summary',
-              },
+        choices: [
+          {
+            message: {
+              content: 'Summary',
             },
-          ],
-        },
+          },
+        ],
       }
 
-      mockOpenAIClient.createChatCompletion.mockResolvedValue(mockCompletion)
+      mockOpenAIClient.chat.completions.create.mockResolvedValue(mockCompletion)
 
       const result = await generateSummary('Messages')
 
@@ -122,18 +113,16 @@ describe('openaiService', () => {
 
     it('should handle empty message content', async () => {
       const mockCompletion = {
-        data: {
-          choices: [
-            {
-              message: {
-                content: '',
-              },
+        choices: [
+          {
+            message: {
+              content: '',
             },
-          ],
-        },
+          },
+        ],
       }
 
-      mockOpenAIClient.createChatCompletion.mockResolvedValue(mockCompletion)
+      mockOpenAIClient.chat.completions.create.mockResolvedValue(mockCompletion)
 
       const result = await generateSummary('Messages', undefined, 'test')
 
@@ -143,18 +132,11 @@ describe('openaiService', () => {
 
     it('should handle rate limit errors (429 status)', async () => {
       const rateLimitError = {
-        response: {
-          status: 429,
-          data: {
-            error: {
-              message: 'Rate limit exceeded',
-            },
-          },
-        },
+        status: 429,
         message: 'Rate limit exceeded',
       }
 
-      mockOpenAIClient.createChatCompletion.mockRejectedValue(rateLimitError)
+      mockOpenAIClient.chat.completions.create.mockRejectedValue(rateLimitError)
 
       await expect(generateSummary('Messages')).rejects.toThrow(
         'OpenAI API Rate Limit Error'
@@ -166,7 +148,7 @@ describe('openaiService', () => {
         message: 'rate limit exceeded',
       }
 
-      mockOpenAIClient.createChatCompletion.mockRejectedValue(rateLimitError)
+      mockOpenAIClient.chat.completions.create.mockRejectedValue(rateLimitError)
 
       await expect(generateSummary('Messages')).rejects.toThrow(
         'OpenAI API Rate Limit Error'
@@ -175,18 +157,11 @@ describe('openaiService', () => {
 
     it('should handle general API errors', async () => {
       const apiError = {
-        response: {
-          status: 400,
-          data: {
-            error: {
-              message: 'Invalid request',
-            },
-          },
-        },
-        message: 'Bad request',
+        status: 400,
+        message: 'Invalid request',
       }
 
-      mockOpenAIClient.createChatCompletion.mockRejectedValue(apiError)
+      mockOpenAIClient.chat.completions.create.mockRejectedValue(apiError)
 
       await expect(generateSummary('Messages')).rejects.toThrow(
         'OpenAI API Error: Invalid request'
@@ -205,10 +180,11 @@ describe('openaiService', () => {
         message: 'Fallback message',
       }
 
-      mockOpenAIClient.createChatCompletion.mockRejectedValue(apiError)
+      mockOpenAIClient.chat.completions.create.mockRejectedValue(apiError)
 
+      // OpenAI v6 prioritizes error.message over response.data.error.message
       await expect(generateSummary('Messages')).rejects.toThrow(
-        'OpenAI API Error: Custom error message'
+        'OpenAI API Error: Fallback message'
       )
     })
 
@@ -217,7 +193,7 @@ describe('openaiService', () => {
         message: 'Simple error message',
       }
 
-      mockOpenAIClient.createChatCompletion.mockRejectedValue(apiError)
+      mockOpenAIClient.chat.completions.create.mockRejectedValue(apiError)
 
       await expect(generateSummary('Messages')).rejects.toThrow(
         'OpenAI API Error: Simple error message'
@@ -227,7 +203,7 @@ describe('openaiService', () => {
     it('should handle errors with unknown format', async () => {
       const unknownError = {}
 
-      mockOpenAIClient.createChatCompletion.mockRejectedValue(unknownError)
+      mockOpenAIClient.chat.completions.create.mockRejectedValue(unknownError)
 
       await expect(generateSummary('Messages')).rejects.toThrow(
         'OpenAI API Error: Unknown error'

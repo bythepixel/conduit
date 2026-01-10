@@ -193,8 +193,12 @@ export const mockHubSpotClient = {
   },
 }
 
-// Mock OpenAI API
+// Mock OpenAI API (v6 structure)
 export const mockOpenAIClient = {
-  createChatCompletion: jest.fn(),
+  chat: {
+    completions: {
+      create: jest.fn(),
+    },
+  },
 }
 
