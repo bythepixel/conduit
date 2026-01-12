@@ -262,9 +262,7 @@ export async function createDealFromHarvestInvoice(invoiceId: number): Promise<{
             } else if (stateLower === 'paid') {
                 dealStage = invoicePaidStageId // Invoice Paid (Closed)
             }
-        }
-
-        // Prepare deal properties
+        }        // Prepare deal properties
         const dealProperties: any = {
             dealname: dealName,
             amount: invoice.amount ? invoice.amount.toString() : undefined,
