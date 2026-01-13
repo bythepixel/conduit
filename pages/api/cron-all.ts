@@ -55,9 +55,14 @@ export default async function handler(
 
             const isLocalhost =
                 host.startsWith('localhost') || host.startsWith('127.0.0.1')
-            const proto =
-                protoFromHeader ||
-                (isLocalhost || process.env.NODE_ENV === 'development' ? 'http' : 'https')
+            // On Vercel, always prefer https for non-localhost to avoid http->https redirects.
+            // Redirects can drop Authorization headers, causing downstream 401s.
+            const isVercelRuntime = !!(process.env.VERCEL || process.env.VERCEL_URL)
+            const proto = isLocalhost
+                ? 'http'
+                : isVercelRuntime
+                    ? 'https'
+                    : (protoFromHeader || (process.env.NODE_ENV === 'development' ? 'http' : 'https'))
 
             return `${proto}://${host}`
         }
@@ -71,6 +76,11 @@ export default async function handler(
     }
 
     const baseUrl = getBaseUrl()
+    console.log('[CRON ALL] Internal baseUrl computed', {
+        baseUrl,
+        hasHostHeader: !!req.headers.host,
+        forwardedProto: req.headers['x-forwarded-proto'],
+    })
 
     // Prepare headers for internal API calls
     const getHeaders = () => {
@@ -97,6 +107,10 @@ export default async function handler(
     }
 
     const headers = getHeaders()
+    console.log('[CRON ALL] Internal call headers', {
+        hasAuthorization: !!headers['Authorization'],
+        hasVercelCronHeader: !!headers['x-vercel-cron'],
+    })
 
     try {
         // Step 1: Run sync-data
