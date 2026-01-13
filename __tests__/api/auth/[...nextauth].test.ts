@@ -17,8 +17,12 @@ jest.mock('next-auth', () => ({
   default: jest.fn(),
 }))
 
-// Import after mocks
-import { authOptions } from '../../../pages/api/auth/[...nextauth]'
+// Import after mocks.
+// NOTE: This file name contains dots (`[...nextauth].ts`), so an extension-less
+// import can be interpreted as having an unknown extension on some platforms
+// (e.g. Ubuntu in CI). Requiring the exact file avoids resolution issues.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { authOptions } = require('../../../pages/api/auth/[...nextauth].ts')
 
 describe('NextAuth Configuration', () => {
   beforeEach(() => {
