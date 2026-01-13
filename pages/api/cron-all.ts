@@ -78,13 +78,18 @@ export default async function handler(
             'Content-Type': 'application/json'
         }
         
-        // Pass through Vercel cron header if present
-        if (isVercelCron) {
+        // Make downstream calls look like cron calls so individual routes don't
+        // reject due to missing x-vercel-cron. This is safe because cron-all itself
+        // is protected by CRON_SECRET when configured.
+        if (isCronCall || isVercelCron) {
             headers['x-vercel-cron'] = '1'
         }
         
-        // Add authorization if CRON_SECRET is set and this is a cron call
-        if (isCronCall && process.env.CRON_SECRET) {
+        // Prefer forwarding incoming auth (manual triggers), otherwise use CRON_SECRET.
+        const incomingAuth = req.headers.authorization
+        if (typeof incomingAuth === 'string' && incomingAuth.length > 0) {
+            headers['Authorization'] = incomingAuth
+        } else if (process.env.CRON_SECRET) {
             headers['Authorization'] = `Bearer ${process.env.CRON_SECRET}`
         }
         
