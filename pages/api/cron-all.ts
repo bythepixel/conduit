@@ -42,40 +42,7 @@ export default async function handler(
         errors: [] as string[]
     }
 
-    // Determine base URL for internal API calls
-    // Prefer deriving from the incoming request (works reliably on Vercel + locally).
-    // Fall back to env vars if needed.
-    const getBaseUrl = () => {
-        const host = req.headers.host
-        if (host) {
-            const forwardedProto = req.headers['x-forwarded-proto']
-            const protoFromHeader = Array.isArray(forwardedProto)
-                ? forwardedProto[0]
-                : forwardedProto
-
-            const isLocalhost =
-                host.startsWith('localhost') || host.startsWith('127.0.0.1')
-            // On Vercel, always prefer https for non-localhost to avoid http->https redirects.
-            // Redirects can drop Authorization headers, causing downstream 401s.
-            const isVercelRuntime = !!(process.env.VERCEL || process.env.VERCEL_URL)
-            const proto = isLocalhost
-                ? 'http'
-                : isVercelRuntime
-                    ? 'https'
-                    : (protoFromHeader || (process.env.NODE_ENV === 'development' ? 'http' : 'https'))
-
-            return `${proto}://${host}`
-        }
-        if (process.env.VERCEL_URL) {
-            return `https://${process.env.VERCEL_URL}`
-        }
-        if (process.env.NEXT_PUBLIC_APP_URL) {
-            return process.env.NEXT_PUBLIC_APP_URL
-        }
-        return 'http://localhost:3000'
-    }
-
-    const baseUrl = getBaseUrl()
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     console.log('[CRON ALL] Internal baseUrl computed', {
         baseUrl,
         hasHostHeader: !!req.headers.host,
