@@ -10,7 +10,9 @@ global.TextDecoder = TextDecoder
 process.env.SLACK_BOT_TOKEN = 'test-slack-token'
 process.env.HUBSPOT_ACCESS_TOKEN = 'test-hubspot-token'
 process.env.OPENAI_API_KEY = 'test-openai-key'
-process.env.DATABASE_URL = 'file:./test.db'
+// Prisma schema uses PostgreSQL; keep this a valid Postgres URL so importing
+// `lib/prisma.ts` (which initializes a pg Pool) never fails due to URL parsing.
+process.env.DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/postgres?schema=public'
 process.env.NEXTAUTH_SECRET = 'test-secret'
 process.env.NODE_ENV = 'test'
 
