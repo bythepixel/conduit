@@ -280,9 +280,7 @@ export async function createDealFromHarvestInvoice(invoiceId: number): Promise<{
         // Add issue date if available
         if (invoice.issueDate) {
             dealProperties.createdate = new Date(invoice.issueDate).toISOString()
-        }
-
-        // Add paid date if available (only set closedate if invoice is paid)
+        }        // Add paid date if available (only set closedate if invoice is paid)
         if (invoice.paidDate) {
             dealProperties.closedate = new Date(invoice.paidDate).toISOString()
         }

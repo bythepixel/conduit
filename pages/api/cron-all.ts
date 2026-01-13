@@ -43,8 +43,24 @@ export default async function handler(
     }
 
     // Determine base URL for internal API calls
-    // For Vercel, use the VERCEL_URL if available, otherwise use localhost
+    // Prefer deriving from the incoming request (works reliably on Vercel + locally).
+    // Fall back to env vars if needed.
     const getBaseUrl = () => {
+        const host = req.headers.host
+        if (host) {
+            const forwardedProto = req.headers['x-forwarded-proto']
+            const protoFromHeader = Array.isArray(forwardedProto)
+                ? forwardedProto[0]
+                : forwardedProto
+
+            const isLocalhost =
+                host.startsWith('localhost') || host.startsWith('127.0.0.1')
+            const proto =
+                protoFromHeader ||
+                (isLocalhost || process.env.NODE_ENV === 'development' ? 'http' : 'https')
+
+            return `${proto}://${host}`
+        }
         if (process.env.VERCEL_URL) {
             return `https://${process.env.VERCEL_URL}`
         }
@@ -84,7 +100,8 @@ export default async function handler(
             const syncDataUrl = `${baseUrl}/api/sync-data`
             const syncDataResponse = await fetch(syncDataUrl, {
                 method: 'GET',
-                headers
+                headers,
+                cache: 'no-store'
             })
             
             if (syncDataResponse.ok) {
@@ -108,7 +125,8 @@ export default async function handler(
             const syncUrl = `${baseUrl}/api/sync`
             const syncResponse = await fetch(syncUrl, {
                 method: 'GET',
-                headers
+                headers,
+                cache: 'no-store'
             })
             
             if (syncResponse.ok) {
@@ -132,7 +150,8 @@ export default async function handler(
             const harvestUrl = `${baseUrl}/api/harvest-invoices/sync`
             const harvestResponse = await fetch(harvestUrl, {
                 method: 'GET',
-                headers
+                headers,
+                cache: 'no-store'
             })
             
             if (harvestResponse.ok) {
