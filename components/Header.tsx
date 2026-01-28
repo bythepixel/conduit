@@ -15,15 +15,18 @@ export default function Header({ action }: HeaderProps) {
     const [navOpen, setNavOpen] = useState(false)
     const [slackyHubOpen, setSlackyHubOpen] = useState(false)
     const [fireSpotOpen, setFireSpotOpen] = useState(false)
+    const [gitSpotOpen, setGitSpotOpen] = useState(false)
     const [hubvestOpen, setHubvestOpen] = useState(false)
     const [mobileSlackyHubOpen, setMobileSlackyHubOpen] = useState(false)
     const [mobileFireSpotOpen, setMobileFireSpotOpen] = useState(false)
+    const [mobileGitSpotOpen, setMobileGitSpotOpen] = useState(false)
     const [mobileHubvestOpen, setMobileHubvestOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
     const navRef = useRef<HTMLDivElement>(null)
     const hamburgerRef = useRef<HTMLButtonElement>(null)
     const slackyHubRef = useRef<HTMLDivElement>(null)
     const fireSpotRef = useRef<HTMLDivElement>(null)
+    const gitSpotRef = useRef<HTMLDivElement>(null)
     const hubvestRef = useRef<HTMLDivElement>(null)
 
     const isActive = (path: string) => router.pathname === path
@@ -50,6 +53,14 @@ export default function Header({ action }: HeaderProps) {
                isActive('/admin/hubspot-companies')
     }
 
+    // Check if GitSpot child is active
+    const isGitSpotActive = () => {
+        return isActive('/admin/gitspot-mappings') ||
+               isActive('/admin/github-repositories') ||
+               isActive('/admin/gitspot-release-cron-logs') ||
+               isActive('/admin/hubspot-companies')
+    }
+
     // Close menus when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -72,19 +83,22 @@ export default function Header({ action }: HeaderProps) {
             if (fireSpotRef.current && !fireSpotRef.current.contains(target)) {
                 setFireSpotOpen(false)
             }
+            if (gitSpotRef.current && !gitSpotRef.current.contains(target)) {
+                setGitSpotOpen(false)
+            }
             if (hubvestRef.current && !hubvestRef.current.contains(target)) {
                 setHubvestOpen(false)
             }
         }
 
-        if (menuOpen || navOpen || slackyHubOpen || fireSpotOpen || hubvestOpen) {
+        if (menuOpen || navOpen || slackyHubOpen || fireSpotOpen || gitSpotOpen || hubvestOpen) {
             document.addEventListener('mousedown', handleClickOutside)
         }
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside)
         }
-    }, [menuOpen, navOpen, slackyHubOpen, fireSpotOpen, hubvestOpen])
+    }, [menuOpen, navOpen, slackyHubOpen, fireSpotOpen, gitSpotOpen, hubvestOpen])
 
     // Close mobile nav when route changes
     useEffect(() => {
@@ -228,6 +242,66 @@ export default function Header({ action }: HeaderProps) {
                                             : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
                                     }`}>
                                         Fire Hook Logs
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* GitSpot Dropdown */}
+                        <div className="relative" ref={gitSpotRef}>
+                            <button
+                                onClick={() => setGitSpotOpen(!gitSpotOpen)}
+                                className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-1 ${
+                                    isGitSpotActive()
+                                        ? 'bg-slate-600 text-indigo-400 shadow-sm'
+                                        : 'text-slate-300 hover:text-slate-100 hover:bg-slate-600/50'
+                                }`}
+                            >
+                                GitSpot
+                                <svg 
+                                    xmlns="http://www.w3.org/2000/svg" 
+                                    width="14" 
+                                    height="14" 
+                                    viewBox="0 0 24 24" 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    strokeWidth="2" 
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round"
+                                    className={`transition-transform ${gitSpotOpen ? 'rotate-180' : ''}`}
+                                >
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </button>
+                            {gitSpotOpen && (
+                                <div className="absolute top-full left-0 mt-1 w-56 bg-slate-800 rounded-lg shadow-2xl border border-slate-700 overflow-hidden z-50">
+                                    <Link href="/admin/gitspot-mappings" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/gitspot-mappings')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Mappings
+                                    </Link>
+                                    <Link href="/admin/github-repositories" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/github-repositories')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Repositories
+                                    </Link>
+                                    <Link href="/admin/gitspot-release-cron-logs" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/gitspot-release-cron-logs')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Cron Logs
+                                    </Link>
+                                    <Link href="/admin/hubspot-companies" className={`block px-4 py-2 text-sm transition-colors ${
+                                        isActive('/admin/hubspot-companies')
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}>
+                                        Companies
                                     </Link>
                                 </div>
                             )}
@@ -487,6 +561,66 @@ export default function Header({ action }: HeaderProps) {
                                                 : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
                                         }`}>
                                             Fire Hook Logs
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* GitSpot Dropdown - Mobile */}
+                            <div>
+                                <button
+                                    onClick={() => setMobileGitSpotOpen(!mobileGitSpotOpen)}
+                                    className={`w-full px-4 py-3 rounded-lg text-sm font-semibold transition-all flex items-center justify-between ${
+                                        isGitSpotActive()
+                                            ? 'bg-slate-700 text-indigo-400'
+                                            : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                    }`}
+                                >
+                                    GitSpot
+                                    <svg 
+                                        xmlns="http://www.w3.org/2000/svg" 
+                                        width="16" 
+                                        height="16" 
+                                        viewBox="0 0 24 24" 
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        strokeWidth="2" 
+                                        strokeLinecap="round" 
+                                        strokeLinejoin="round"
+                                        className={`transition-transform ${mobileGitSpotOpen ? 'rotate-180' : ''}`}
+                                    >
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </button>
+                                {mobileGitSpotOpen && (
+                                    <div className="pl-4 mt-1 space-y-1">
+                                        <Link href="/admin/gitspot-mappings" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/gitspot-mappings')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Mappings
+                                        </Link>
+                                        <Link href="/admin/github-repositories" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/github-repositories')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Repositories
+                                        </Link>
+                                        <Link href="/admin/gitspot-release-cron-logs" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/gitspot-release-cron-logs')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Cron Logs
+                                        </Link>
+                                        <Link href="/admin/hubspot-companies" className={`block px-4 py-2 rounded-lg text-sm transition-all ${
+                                            isActive('/admin/hubspot-companies')
+                                                ? 'bg-slate-700 text-indigo-400'
+                                                : 'text-slate-300 hover:text-slate-100 hover:bg-slate-700/50'
+                                        }`}>
+                                            Companies
                                         </Link>
                                     </div>
                                 )}

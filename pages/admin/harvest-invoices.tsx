@@ -6,7 +6,7 @@ import { useSetState } from '../../lib/hooks/useSetState'
 import { useApiCall } from '../../lib/hooks/useApiCall'
 import { useAuthGuard } from '../../lib/hooks/useAuthGuard'
 import { formatCurrency, formatDate, formatSyncResults } from '../../lib/utils/formatHelpers'
-import { createSearchFilter, filterByCondition } from '../../lib/utils/filterHelpers'
+import { filterByCondition } from '../../lib/utils/filterHelpers'
 import { getActionButtonClasses } from '../../lib/utils/buttonHelpers'
 
 type HarvestInvoice = {
@@ -29,6 +29,8 @@ type HarvestInvoice = {
     paidDate?: string
     paymentTerm?: string
     hubspotDealId?: string
+    dealPaidSynced?: boolean
+    dealPaidSyncedAt?: string
     hasMapping?: boolean
     createdAt: string
     updatedAt: string
@@ -47,6 +49,9 @@ export default function HarvestInvoices() {
     const { set: expandedInvoices, toggle: toggleExpand } = useSetState<number>()
     const [showSyncConfirm, setShowSyncConfirm] = useState(false)
     const { modalConfig, setModalConfig, callApi, closeModal } = useApiCall()
+    const [total, setTotal] = useState(0)
+    const [limit] = useState(100)
+    const [offset, setOffset] = useState(0)
 
     // Fetch invoices on mount
     useEffect(() => {
@@ -56,12 +61,38 @@ export default function HarvestInvoices() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLoading])
 
-    const fetchInvoices = async () => {
+    // Re-fetch when paging changes
+    useEffect(() => {
+        if (!isLoading) {
+            fetchInvoices()
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [offset])
+
+    // Preserve search UX: reset to page 1 and re-fetch with a small debounce
+    useEffect(() => {
+        if (isLoading) return
+        const t = setTimeout(() => {
+            setOffset(0)
+            fetchInvoices(0)
+        }, 250)
+        return () => clearTimeout(t)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [search])
+
+    const fetchInvoices = async (overrideOffset?: number) => {
         try {
-            const res = await fetch('/api/harvest-invoices')
+            const o = overrideOffset !== undefined ? overrideOffset : offset
+            const qs = new URLSearchParams({
+                limit: limit.toString(),
+                offset: o.toString(),
+                search: search.trim()
+            })
+            const res = await fetch(`/api/harvest-invoices?${qs.toString()}`)
             if (res.ok) {
                 const data = await res.json()
-                setInvoices(data)
+                setInvoices(data.invoices || [])
+                setTotal(data.total || 0)
             } else {
                 console.error('Failed to fetch invoices:', res.status, res.statusText)
             }
@@ -194,20 +225,9 @@ export default function HarvestInvoices() {
 
     if (isLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-slate-100">Loading...</div>
 
-    // Filter invoices by search and mapping status
-    const searchFiltered = createSearchFilter(
-        invoices,
-        search,
-        (inv) => [
-            inv.clientName || '',
-            inv.number || '',
-            inv.subject || '',
-            inv.harvestId
-        ]
-    )
-    
+    // Server does the search; keep client-side mapping filter.
     const filteredInvoices = filterByCondition(
-        searchFiltered,
+        invoices,
         (inv) => !showOnlyNoMapping || inv.hasMapping === false
     )
 
@@ -323,9 +343,19 @@ export default function HarvestInvoices() {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`px-2 py-1 rounded text-xs font-semibold capitalize ${getStateColor(invoice.state)}`}>
-                                                        {invoice.state || 'N/A'}
-                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`px-2 py-1 rounded text-xs font-semibold capitalize ${getStateColor(invoice.state)}`}>
+                                                            {invoice.state || 'N/A'}
+                                                        </span>
+                                                        {invoice.dealPaidSynced && (
+                                                            <span
+                                                                className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                                                                title={invoice.dealPaidSyncedAt ? `Deal marked paid-synced at ${new Date(invoice.dealPaidSyncedAt).toLocaleString()}` : 'Deal marked paid-synced'}
+                                                            >
+                                                                Deal✓
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
                                                     {formatDate(invoice.issueDate)}
@@ -466,6 +496,33 @@ export default function HarvestInvoices() {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+
+                        {/* Pagination */}
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-700">
+                            <div className="text-sm text-slate-400">
+                                {total > 0 ? (
+                                    <>Showing {Math.min(offset + 1, total)}-{Math.min(offset + limit, total)} of {total}</>
+                                ) : (
+                                    <>Showing 0</>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setOffset(Math.max(0, offset - limit))}
+                                    disabled={offset === 0}
+                                    className="px-4 py-2 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-semibold"
+                                >
+                                    Previous
+                                </button>
+                                <button
+                                    onClick={() => setOffset(offset + limit)}
+                                    disabled={offset + limit >= total}
+                                    className="px-4 py-2 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-semibold"
+                                >
+                                    Next
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}

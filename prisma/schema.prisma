@@ -32,6 +32,7 @@ model HubspotCompany {
   mappings        SlackMapping[]
   meetingNotes    MeetingNote[]
   harvestCompanyMappings HarvestCompanyMapping[]
+  gitSpotCompanyMappings GitSpotCompanyMapping[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 }
@@ -187,6 +188,8 @@ model HarvestInvoice {
   paymentTerm       String?   // Payment term
   metadata          Json?     // Additional metadata from Harvest API
   hubspotDealId     String?   // HubSpot deal ID if deal was created from this invoice
+  dealPaidSynced    Boolean   @default(false) // true when invoice is paid and we've synced the deal stage to Invoice Paid
+  dealPaidSyncedAt  DateTime?
   cronLogInvoiceLogs HarvestInvoiceCronLogInvoice[]
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -259,4 +262,88 @@ model HarvestCompanyMapping {
   @@unique([hubspotCompanyId, harvestCompanyId])
   @@index([hubspotCompanyId])
   @@index([harvestCompanyId])
+}
+
+// -----------------------------
+// GitSpot (GitHub ↔ HubSpot)
+// -----------------------------
+
+model GitHubRepository {
+  id            Int                   @id @default(autoincrement())
+  githubId      String                @unique // GitHub repository ID (numeric) stored as string
+  fullName      String                @unique // owner/name
+  name          String?
+  ownerLogin    String?
+  htmlUrl       String?
+  description   String?               @db.Text
+  isPrivate     Boolean               @default(false)
+  isFork        Boolean               @default(false)
+  isArchived    Boolean               @default(false)
+  defaultBranch String?
+  pushedAt      DateTime?
+  metadata      Json?
+  mappings      GitSpotCompanyMapping[]
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@index([fullName])
+  @@index([ownerLogin])
+}
+
+model GitSpotCompanyMapping {
+  id                   Int             @id @default(autoincrement())
+  hubspotCompanyId     Int
+  githubRepositoryId   Int
+  hubspotCompany       HubspotCompany  @relation(fields: [hubspotCompanyId], references: [id], onDelete: Cascade)
+  githubRepository     GitHubRepository @relation(fields: [githubRepositoryId], references: [id], onDelete: Cascade)
+
+  // Release sync cursor (to prevent duplicate notes)
+  lastReleaseId         String?
+  lastReleaseTagName    String?
+  lastReleasePublishedAt DateTime?
+
+  releaseCronLogMappings GitSpotReleaseCronLogMapping[]
+
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@unique([hubspotCompanyId, githubRepositoryId])
+  @@index([hubspotCompanyId])
+  @@index([githubRepositoryId])
+}
+
+model GitSpotReleaseCronLog {
+  id               Int                         @id @default(autoincrement())
+  startedAt        DateTime                    @default(now())
+  completedAt      DateTime?
+  status           String                      // 'running', 'completed', 'failed'
+  mappingsFound    Int                         @default(0)
+  mappingsExecuted Int                         @default(0)
+  mappingsFailed   Int                         @default(0)
+  notesCreated     Int                         @default(0)
+  mappingsSkipped  Int                         @default(0)
+  errorMessage     String?
+  errors           String[]
+  mappings         GitSpotReleaseCronLogMapping[]
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+
+  @@index([startedAt])
+  @@index([status])
+}
+
+model GitSpotReleaseCronLogMapping {
+  id           Int                 @id @default(autoincrement())
+  cronLogId    Int
+  cronLog      GitSpotReleaseCronLog @relation(fields: [cronLogId], references: [id], onDelete: Cascade)
+  mappingId    Int
+  mapping      GitSpotCompanyMapping @relation(fields: [mappingId], references: [id], onDelete: Cascade)
+  status       String              // 'success', 'failed', 'skipped'
+  notesCreated Int                 @default(0)
+  errorMessage String?
+  createdAt    DateTime            @default(now())
+
+  @@unique([cronLogId, mappingId])
+  @@index([cronLogId])
+  @@index([mappingId])
 }

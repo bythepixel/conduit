@@ -15,6 +15,27 @@ function getHubSpotClient(): HubSpotClient {
     return hubspotClient
 }
 
+function formatInvoiceDateYYYYMMDD(d: Date | null | undefined): string {
+    if (!d) return 'unknown-date'
+    try {
+        return new Date(d).toISOString().slice(0, 10)
+    } catch {
+        return 'unknown-date'
+    }
+}
+
+function normalizeSegment(s: string | null | undefined): string {
+    return (s || '').toString().trim().replace(/\s+/g, ' ')
+}
+
+function buildHarvestInvoiceDealName(invoice: any): string {
+    const number = normalizeSegment(invoice.number) || normalizeSegment(invoice.harvestId) || 'unknown-invoice'
+    const date = formatInvoiceDateYYYYMMDD(invoice.issueDate)
+    const client = normalizeSegment(invoice.clientName) || normalizeSegment(invoice.clientId) || 'unknown-client'
+    const subject = normalizeSegment(invoice.subject) || 'No Subject'
+    return `${number} - ${date} - ${client} - ${subject}`
+}
+
 /**
  * Creates a note in HubSpot associated with a company
  */
@@ -235,9 +256,7 @@ export async function createDealFromHarvestInvoice(invoiceId: number): Promise<{
 
         if (!hubspotCompany.companyId) {
             throw new Error(`HubSpot Company does not have a companyId`)
-        }
-
-        // Fetch the full HubSpot company to get the ownerId
+        }        // Fetch the full HubSpot company to get the ownerId
         const fullHubspotCompany = await prisma.hubspotCompany.findUnique({
             where: { companyId: hubspotCompany.companyId }
         })
@@ -246,9 +265,7 @@ export async function createDealFromHarvestInvoice(invoiceId: number): Promise<{
         const hubspot = getHubSpotClient()
 
         // Format deal name from invoice
-        const dealName = invoice.subject || 
-                        `Invoice ${invoice.number || invoice.harvestId}` ||
-                        `Harvest Invoice ${invoice.harvestId}`
+        const dealName = buildHarvestInvoiceDealName(invoice)
 
         // Map invoice state to deal stage
         const invoiceSentStageId = getEnv('HUBSPOT_DEAL_STAGE_INVOICE_SENT', '1269293330')
@@ -316,9 +333,13 @@ export async function createDealFromHarvestInvoice(invoiceId: number): Promise<{
         console.log(`[HubSpot API] Successfully created deal ${dealId} from invoice ${invoiceId}`)
 
         // Save the deal ID to the invoice
-        await prisma.harvestInvoice.update({
+        const isPaid = invoice.state?.toLowerCase() === 'paid'
+        await (prisma as any).harvestInvoice.update({
             where: { id: invoiceId },
-            data: { hubspotDealId: dealId.toString() }
+            data: {
+                hubspotDealId: dealId.toString(),
+                ...(isPaid ? { dealPaidSynced: true, dealPaidSyncedAt: new Date() } : {})
+            }
         })
 
         // Optionally, add invoice details as a note
@@ -466,9 +487,7 @@ export async function syncDealFromHarvestInvoice(invoiceId: number): Promise<{ d
         const hubspot = getHubSpotClient()
 
         // Format deal name from invoice
-        const dealName = invoice.subject || 
-                        `Invoice ${invoice.number || invoice.harvestId}` ||
-                        `Harvest Invoice ${invoice.harvestId}`
+        const dealName = buildHarvestInvoiceDealName(invoice)
 
         // Map invoice state to deal stage
         const invoiceSentStageId = getEnv('HUBSPOT_DEAL_STAGE_INVOICE_SENT', '1269293330')
@@ -524,6 +543,22 @@ export async function syncDealFromHarvestInvoice(invoiceId: number): Promise<{ d
         await hubspot.crm.deals.basicApi.update(invoice.hubspotDealId, {
             properties: dealProperties
         })
+
+        // If invoice is paid, mark that we've successfully synced the deal to the paid stage.
+        if (invoice.state?.toLowerCase() === 'paid') {
+            try {
+                await (prisma as any).harvestInvoice.update({
+                    where: { id: invoiceId },
+                    data: {
+                        dealPaidSynced: true,
+                        dealPaidSyncedAt: new Date(),
+                    }
+                })
+            } catch (updateErr: any) {
+                // Don't fail deal sync if the bookkeeping flag can't be updated.
+                console.error('[HubSpot API] Failed to update dealPaidSynced flag:', updateErr)
+            }
+        }
 
         console.log(`[HubSpot API] Successfully synced deal ${invoice.hubspotDealId} from invoice ${invoiceId}`)
 

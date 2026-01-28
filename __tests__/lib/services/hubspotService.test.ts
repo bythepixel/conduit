@@ -210,7 +210,9 @@ describe('hubspotService', () => {
       mockPrisma.harvestInvoice.findUnique.mockResolvedValue({
         id: 1,
         harvestId: '123',
+        number: 'INV-001',
         state: 'open',
+        clientName: 'Client A',
         subject: 'Test Invoice',
         amount: 1000,
         currency: 'USD',
@@ -251,7 +253,13 @@ describe('hubspotService', () => {
       expect(mockPrisma.harvestInvoice.findUnique).toHaveBeenCalledWith({
         where: { id: 1 }
       })
-      expect(mockHubSpotClient.crm.deals.basicApi.create).toHaveBeenCalled()
+      expect(mockHubSpotClient.crm.deals.basicApi.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          properties: expect.objectContaining({
+            dealname: 'INV-001 - 2024-01-01 - Client A - Test Invoice',
+          }),
+        })
+      )
       expect(mockPrisma.harvestInvoice.update).toHaveBeenCalledWith({
         where: { id: 1 },
         data: { hubspotDealId: 'deal-123' }
@@ -303,8 +311,10 @@ describe('hubspotService', () => {
       mockPrisma.harvestInvoice.findUnique.mockResolvedValue({
         id: 1,
         harvestId: '123',
+        number: 'INV-001',
         state: 'open',
         hubspotDealId: 'deal-123',
+        clientName: 'Client A',
         subject: 'Test Invoice',
         amount: 1000,
         currency: 'USD',
@@ -342,7 +352,11 @@ describe('hubspotService', () => {
       })
       expect(mockHubSpotClient.crm.deals.basicApi.update).toHaveBeenCalledWith(
         'deal-123',
-        expect.any(Object)
+        expect.objectContaining({
+          properties: expect.objectContaining({
+            dealname: 'INV-001 - 2024-01-01 - Client A - Test Invoice',
+          }),
+        })
       )
       expect(result).toEqual({
         dealId: 'deal-123',

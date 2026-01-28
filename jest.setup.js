@@ -10,6 +10,8 @@ global.TextDecoder = TextDecoder
 process.env.SLACK_BOT_TOKEN = 'test-slack-token'
 process.env.HUBSPOT_ACCESS_TOKEN = 'test-hubspot-token'
 process.env.OPENAI_API_KEY = 'test-openai-key'
+process.env.GITHUB_TOKEN = 'test-github-token'
+process.env.GITHUB_ORG = 'test-org'
 // Prisma schema uses PostgreSQL; keep this a valid Postgres URL so importing
 // `lib/prisma.ts` (which initializes a pg Pool) never fails due to URL parsing.
 process.env.DATABASE_URL = 'postgresql://postgres:postgres@localhost:5432/postgres?schema=public'

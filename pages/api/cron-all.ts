@@ -39,6 +39,7 @@ export default async function handler(
         syncData: null as any,
         sync: null as any,
         harvestInvoices: null as any,
+        gitspotReleases: null as any,
         errors: [] as string[]
     }
 
@@ -151,6 +152,31 @@ export default async function handler(
             }
         } catch (error: any) {
             const errorMsg = `harvest-invoices sync error: ${error.message || 'Unknown error'}`
+            results.errors.push(errorMsg)
+            console.error(`[CRON ALL] ${errorMsg}`, error)
+        }
+
+        // Step 4: Run GitSpot releases sync (post GitHub releases to HubSpot as notes)
+        console.log('[CRON ALL] Step 4: Running GitSpot release sync...')
+        try {
+            const gitspotUrl = `${baseUrl}/api/gitspot/sync-releases`
+            const gitspotResponse = await fetch(gitspotUrl, {
+                method: 'GET',
+                headers,
+                cache: 'no-store'
+            })
+
+            if (gitspotResponse.ok) {
+                results.gitspotReleases = await gitspotResponse.json()
+                console.log('[CRON ALL] Step 4 completed: GitSpot release sync', results.gitspotReleases)
+            } else {
+                const errorData = await gitspotResponse.json().catch(() => ({ error: 'Unknown error' }))
+                const errorMsg = `gitspot release sync failed: ${gitspotResponse.status} - ${errorData.error || 'Unknown error'}`
+                results.errors.push(errorMsg)
+                console.error(`[CRON ALL] ${errorMsg}`)
+            }
+        } catch (error: any) {
+            const errorMsg = `gitspot release sync error: ${error.message || 'Unknown error'}`
             results.errors.push(errorMsg)
             console.error(`[CRON ALL] ${errorMsg}`, error)
         }

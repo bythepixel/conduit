@@ -10,7 +10,7 @@ import {
     updateHarvestInvoiceCronLogFailed,
     createHarvestInvoiceErrorCronLog
 } from '../../../lib/services/harvest/harvestCronLogService'
-import { createDealFromHarvestInvoice } from '../../../lib/services/hubspot/hubspotService'
+import { createDealFromHarvestInvoice, syncDealFromHarvestInvoice } from '../../../lib/services/hubspot/hubspotService'
 
 // Force dynamic execution to prevent caching issues with Vercel cron jobs
 export const dynamic = 'force-dynamic'
@@ -96,6 +96,8 @@ export default async function handler(
             created: 0,
             updated: 0,
             dealsCreated: 0,
+            dealsSynced: 0,
+            skippedPaidAndDealPaid: 0,
             errors: [] as string[]
         }
 
@@ -228,17 +230,38 @@ export default async function handler(
                             where: { harvestId }
                         })
 
+                        // Optimization: once BOTH the Harvest invoice and its HubSpot deal are marked as paid,
+                        // we can safely ignore it on future syncs to reduce churn.
+                        // We still verify Harvest says it's paid before skipping, to avoid missing re-opened invoices.
+                        const incomingStateLower = invoiceData.state ? invoiceData.state.toString().toLowerCase() : null
+                        const existingStateLower = existingInvoice?.state ? (existingInvoice.state as any).toString().toLowerCase() : null
+                        const alreadyPaidAndDealPaid =
+                            !!existingInvoice &&
+                            existingStateLower === 'paid' &&
+                            incomingStateLower === 'paid' &&
+                            (existingInvoice as any).hubspotDealId &&
+                            (existingInvoice as any).dealPaidSynced === true
+
+                        if (alreadyPaidAndDealPaid) {
+                            results.skippedPaidAndDealPaid++
+                            continue
+                        }
+
                         if (harvestCompanyId !== undefined) {
                             invoiceData.harvestCompanyId = harvestCompanyId
                         }
 
                         let invoiceId: number
                         let shouldCreateDeal = false
+                        let existingDealId: string | null = null
+                        let prevStateLower: string | null = null
                         
                         if (existingInvoice) {
                             // Update existing invoice
                             // Only create deal if invoice doesn't already have one
                             shouldCreateDeal = !(existingInvoice as any).hubspotDealId
+                            existingDealId = (existingInvoice as any).hubspotDealId || null
+                            prevStateLower = ((existingInvoice as any).state || '').toString().toLowerCase() || null
                             
                             await prisma.harvestInvoice.update({
                                 where: { id: existingInvoice.id },
@@ -254,6 +277,27 @@ export default async function handler(
                             invoiceId = newInvoice.id
                             shouldCreateDeal = true // New invoice won't have a deal yet
                             results.created++
+                        }
+
+                        // If an existing invoice transitions to PAID and it already has a HubSpot deal,
+                        // sync the deal stage/close date to match the invoice.
+                        // This prevents "stuck" deals when invoices are paid after the initial deal creation.
+                        const newStateLower = invoiceData.state ? invoiceData.state.toString().toLowerCase() : null
+                        const shouldSyncDeal =
+                            !!existingInvoice &&
+                            newStateLower === 'paid' &&
+                            !!existingDealId &&
+                            (existingInvoice as any).dealPaidSynced !== true
+
+                        if (shouldSyncDeal) {
+                            try {
+                                await syncDealFromHarvestInvoice(invoiceId)
+                                results.dealsSynced++
+                                console.log(`[Harvest Sync] Synced HubSpot deal status for paid invoice ${invoiceId}`)
+                            } catch (dealSyncError: any) {
+                                // Do not fail invoice sync for deal sync issues; log and continue.
+                                console.error(`[Harvest Sync] Failed to sync deal for paid invoice ${invoiceId}:`, dealSyncError.message)
+                            }
                         }
 
                         // Automatically create HubSpot deal if validation passes

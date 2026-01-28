@@ -18,7 +18,7 @@ describe('/api/cron-all', () => {
   })
 
   describe('GET requests (cron)', () => {
-    it('should run all three sync jobs in order', async () => {
+    it('should run all sync jobs in order', async () => {
       const mockSyncDataResponse = {
         message: 'Data sync completed',
         hubspot: { created: 1, updated: 0 },
@@ -35,6 +35,11 @@ describe('/api/cron-all', () => {
         results: { created: 5, updated: 3 }
       }
 
+      const mockGitSpotResponse = {
+        message: 'GitSpot release sync completed',
+        results: { mappingsProcessed: 1, notesCreated: 2, skipped: 0, errors: [] }
+      }
+
       ;(global.fetch as jest.Mock)
         .mockResolvedValueOnce({
           ok: true,
@@ -48,6 +53,10 @@ describe('/api/cron-all', () => {
           ok: true,
           json: async () => mockHarvestResponse
         })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockGitSpotResponse
+        })
 
       const req = createMockRequest('GET', undefined, undefined, {
         'x-vercel-cron': '1'
@@ -56,7 +65,7 @@ describe('/api/cron-all', () => {
 
       await handler(req as any, res)
 
-      expect(global.fetch).toHaveBeenCalledTimes(3)
+      expect(global.fetch).toHaveBeenCalledTimes(4)
       expect(global.fetch).toHaveBeenNthCalledWith(
         1,
         expect.stringContaining('/api/sync-data'),
@@ -77,11 +86,20 @@ describe('/api/cron-all', () => {
         expect.stringContaining('/api/harvest-invoices/sync'),
         expect.any(Object)
       )
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        4,
+        expect.stringContaining('/api/gitspot/sync-releases'),
+        expect.any(Object)
+      )
       expect(res.status).toHaveBeenCalledWith(200)
     })
 
     it('should handle errors gracefully and continue', async () => {
       ;(global.fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ message: 'Success' })
+        })
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ message: 'Success' })
@@ -158,7 +176,7 @@ describe('/api/cron-all', () => {
 
       await handler(req as any, res)
 
-      expect(global.fetch).toHaveBeenCalledTimes(3)
+      expect(global.fetch).toHaveBeenCalledTimes(4)
       expect(res.status).toHaveBeenCalledWith(200)
     })
 

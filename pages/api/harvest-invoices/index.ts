@@ -27,7 +27,29 @@ export default async function handler(
     if (!validateMethod(req, res, ['GET'])) return
 
     try {
+        const { limit = '100', offset = '0', search = '' } = req.query
+        const take = Math.min(Math.max(parseInt(limit as string, 10) || 100, 1), 500)
+        const skip = Math.max(parseInt(offset as string, 10) || 0, 0)
+        const searchTerm = (search as string).trim()
+
+        const whereClause: any = searchTerm
+            ? {
+                OR: [
+                    { harvestId: { contains: searchTerm, mode: 'insensitive' } },
+                    { number: { contains: searchTerm, mode: 'insensitive' } },
+                    { clientId: { contains: searchTerm, mode: 'insensitive' } },
+                    { clientName: { contains: searchTerm, mode: 'insensitive' } },
+                    { subject: { contains: searchTerm, mode: 'insensitive' } },
+                    { purchaseOrder: { contains: searchTerm, mode: 'insensitive' } },
+                    { hubspotDealId: { contains: searchTerm, mode: 'insensitive' } },
+                ]
+            }
+            : undefined
+
         const invoices = await prisma.harvestInvoice.findMany({
+            where: whereClause,
+            take,
+            skip,
             include: {
                 harvestCompany: {
                     include: {
@@ -43,6 +65,10 @@ export default async function handler(
                 { issueDate: 'desc' },
                 { createdAt: 'desc' }
             ]
+        })
+
+        const total = await prisma.harvestInvoice.count({
+            where: whereClause
         })
 
         // Get all unique clientIds that don't have harvestCompany loaded
@@ -96,7 +122,12 @@ export default async function handler(
             }
         })
 
-        return res.status(200).json(invoicesWithMapping)
+        return res.status(200).json({
+            invoices: invoicesWithMapping,
+            total,
+            limit: take,
+            offset: skip
+        })
     } catch (error: any) {
         handleError(error, res)
     }

@@ -3,7 +3,7 @@ import { createMockRequest, createMockResponse, createMockSession, delayBetweenT
 import { mockPrisma, mockHubSpotClient } from '../../utils/mocks'
 import { requireAuth } from '../../../lib/middleware/auth'
 import { validateMethod } from '../../../lib/utils/methodValidator'
-import { createDealFromHarvestInvoice } from '../../../lib/services/hubspot/hubspotService'
+import { createDealFromHarvestInvoice, syncDealFromHarvestInvoice } from '../../../lib/services/hubspot/hubspotService'
 
 jest.mock('../../../lib/middleware/auth', () => ({
   requireAuth: jest.fn(),
@@ -19,6 +19,7 @@ jest.mock('../../../lib/prisma', () => ({
 
 jest.mock('../../../lib/services/hubspot/hubspotService', () => ({
   createDealFromHarvestInvoice: jest.fn(),
+  syncDealFromHarvestInvoice: jest.fn(),
 }))
 
 jest.mock('../../../lib/services/harvest/harvestCronLogService', () => ({
@@ -32,6 +33,7 @@ jest.mock('../../../lib/services/harvest/harvestCronLogService', () => ({
 const mockRequireAuth = requireAuth as jest.MockedFunction<typeof requireAuth>
 const mockValidateMethod = validateMethod as jest.MockedFunction<typeof validateMethod>
 const mockCreateDeal = createDealFromHarvestInvoice as jest.MockedFunction<typeof createDealFromHarvestInvoice>
+const mockSyncDeal = syncDealFromHarvestInvoice as jest.MockedFunction<typeof syncDealFromHarvestInvoice>
 
 // Mock fetch globally
 global.fetch = jest.fn()
@@ -199,6 +201,91 @@ describe('/api/harvest-invoices/sync', () => {
       await handler(req as any, res)
 
       expect(mockCreateDeal).not.toHaveBeenCalled()
+    })
+
+    it('should sync existing deal when invoice transitions to paid', async () => {
+      const mockHarvestResponse = {
+        invoices: [
+          {
+            id: 123,
+            client: { id: 456, name: 'Test Client' },
+            amount: '1000.00',
+            state: 'paid',
+            issue_date: '2024-01-01',
+            paid_date: '2024-02-01',
+          }
+        ],
+        total_pages: 1,
+        total_entries: 1
+      }
+
+      ;(global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => mockHarvestResponse
+      })
+
+      mockPrisma.harvestCompany.findUnique.mockResolvedValue({ id: 1, harvestId: '456' } as any)
+      mockPrisma.harvestInvoice.findUnique.mockResolvedValue({
+        id: 1,
+        harvestId: '123',
+        state: 'open',
+        paidDate: null,
+        hubspotDealId: 'deal-123',
+      } as any)
+
+      mockPrisma.harvestInvoice.update.mockResolvedValue({ id: 1 } as any)
+      mockSyncDeal.mockResolvedValue({ dealId: 'deal-123', companyId: 'company-123' } as any)
+
+      const req = createMockRequest('POST')
+      const res = createMockResponse()
+
+      await handler(req as any, res)
+
+      expect(mockCreateDeal).not.toHaveBeenCalled()
+      expect(mockSyncDeal).toHaveBeenCalledWith(1)
+      expect(res.status).toHaveBeenCalledWith(200)
+    })
+
+    it('should skip invoices that are already paid and deal is already marked paid', async () => {
+      const mockHarvestResponse = {
+        invoices: [
+          {
+            id: 123,
+            client: { id: 456, name: 'Test Client' },
+            amount: '1000.00',
+            state: 'paid',
+            issue_date: '2024-01-01',
+            paid_date: '2024-02-01',
+          }
+        ],
+        total_pages: 1,
+        total_entries: 1
+      }
+
+      ;(global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => mockHarvestResponse
+      })
+
+      mockPrisma.harvestCompany.findUnique.mockResolvedValue({ id: 1, harvestId: '456' } as any)
+      mockPrisma.harvestInvoice.findUnique.mockResolvedValue({
+        id: 1,
+        harvestId: '123',
+        state: 'paid',
+        paidDate: new Date('2024-02-01'),
+        hubspotDealId: 'deal-123',
+        dealPaidSynced: true,
+      } as any)
+
+      const req = createMockRequest('POST')
+      const res = createMockResponse()
+
+      await handler(req as any, res)
+
+      expect(mockPrisma.harvestInvoice.update).not.toHaveBeenCalled()
+      expect(mockSyncDeal).not.toHaveBeenCalled()
+      expect(mockCreateDeal).not.toHaveBeenCalled()
+      expect(res.status).toHaveBeenCalledWith(200)
     })
 
     it('should require authentication for POST requests', async () => {

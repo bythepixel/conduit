@@ -58,6 +58,7 @@ describe('/api/harvest-invoices', () => {
       ]
 
       mockPrisma.harvestInvoice.findMany.mockResolvedValue(mockInvoices as any)
+      mockPrisma.harvestInvoice.count.mockResolvedValue(2 as any)
       mockPrisma.harvestCompany.findMany.mockResolvedValue([])
 
       const req = createMockRequest('GET')
@@ -66,6 +67,9 @@ describe('/api/harvest-invoices', () => {
       await handler(req as any, res)
 
       expect(mockPrisma.harvestInvoice.findMany).toHaveBeenCalledWith({
+        where: undefined,
+        take: 100,
+        skip: 0,
         include: {
           harvestCompany: {
             include: {
@@ -83,7 +87,14 @@ describe('/api/harvest-invoices', () => {
         ]
       })
       expect(res.status).toHaveBeenCalledWith(200)
-      expect(res.json).toHaveBeenCalled()
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          invoices: expect.any(Array),
+          total: 2,
+          limit: 100,
+          offset: 0
+        })
+      )
     })
 
     it('should handle invoices without harvestCompany relation', async () => {
@@ -104,6 +115,7 @@ describe('/api/harvest-invoices', () => {
       ]
 
       mockPrisma.harvestInvoice.findMany.mockResolvedValue(mockInvoices as any)
+      mockPrisma.harvestInvoice.count.mockResolvedValue(1 as any)
       mockPrisma.harvestCompany.findMany.mockResolvedValue(mockHarvestCompanies as any)
 
       const req = createMockRequest('GET')
