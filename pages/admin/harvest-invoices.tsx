@@ -41,6 +41,8 @@ export default function HarvestInvoices() {
     const [invoices, setInvoices] = useState<HarvestInvoice[]>([])
     const [loading, setLoading] = useState(true)
     const [syncing, setSyncing] = useState(false)
+    const [syncingAllDeals, setSyncingAllDeals] = useState(false)
+    const [forceSyncingAllDeals, setForceSyncingAllDeals] = useState(false)
     const { set: syncingInvoices, add: addSyncing, remove: removeSyncing } = useSetState<number>()
     const { set: creatingDeals, add: addCreating, remove: removeCreating } = useSetState<number>()
     const { set: syncingDeals, add: addSyncingDeal, remove: removeSyncingDeal } = useSetState<number>()
@@ -48,6 +50,8 @@ export default function HarvestInvoices() {
     const [showOnlyNoMapping, setShowOnlyNoMapping] = useState(false)
     const { set: expandedInvoices, toggle: toggleExpand } = useSetState<number>()
     const [showSyncConfirm, setShowSyncConfirm] = useState(false)
+    const [showSyncAllDealsConfirm, setShowSyncAllDealsConfirm] = useState(false)
+    const [showForceSyncAllDealsConfirm, setShowForceSyncAllDealsConfirm] = useState(false)
     const { modalConfig, setModalConfig, callApi, closeModal } = useApiCall()
     const [total, setTotal] = useState(0)
     const [limit] = useState(100)
@@ -107,6 +111,14 @@ export default function HarvestInvoices() {
         setShowSyncConfirm(true)
     }
 
+    const handleSyncAllDeals = async () => {
+        setShowSyncAllDealsConfirm(true)
+    }
+
+    const handleForceSyncAllDeals = async () => {
+        setShowForceSyncAllDealsConfirm(true)
+    }
+
     const handleConfirmSync = async () => {
         setShowSyncConfirm(false)
         setSyncing(true)
@@ -143,6 +155,108 @@ export default function HarvestInvoices() {
             })
         } finally {
             setSyncing(false)
+        }
+    }
+
+    const handleConfirmSyncAllDeals = async () => {
+        setShowSyncAllDealsConfirm(false)
+        setSyncingAllDeals(true)
+        try {
+            const res = await fetch('/api/harvest-invoices/sync-deals', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ skipPaidAndDealPaid: true }),
+            })
+            const data = await res.json()
+            if (res.ok) {
+                const r = data.results || {}
+                const errors: string[] = r.errors || []
+                const errorCount = errors.length || 0
+                const messageParts = [
+                    `Total with deals: ${r.totalWithDeals ?? 0}`,
+                    `Synced: ${r.synced ?? 0}`,
+                    `Skipped (paid + Deal✓): ${r.skippedPaidAndDealPaid ?? 0}`,
+                    `Failed: ${r.failed ?? 0}`,
+                ]
+                const message = errorCount > 0
+                    ? `${messageParts.join('\n')}\n\nErrors:\n${errors.slice(0, 10).join('\n')}${errorCount > 10 ? `\n...and ${errorCount - 10} more` : ''}`
+                    : messageParts.join('\n')
+
+                setModalConfig({
+                    isOpen: true,
+                    type: errorCount > 0 ? 'info' : 'success',
+                    title: 'Deal Sync Results',
+                    message,
+                })
+                await fetchInvoices()
+            } else {
+                setModalConfig({
+                    isOpen: true,
+                    type: 'error',
+                    title: 'Deal Sync Failed',
+                    message: data.error || 'Failed to sync deals',
+                })
+            }
+        } catch (error: any) {
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Deal Sync Error',
+                message: 'An error occurred: ' + (error.message || 'Unknown error'),
+            })
+        } finally {
+            setSyncingAllDeals(false)
+        }
+    }
+
+    const handleConfirmForceSyncAllDeals = async () => {
+        setShowForceSyncAllDealsConfirm(false)
+        setForceSyncingAllDeals(true)
+        try {
+            const res = await fetch('/api/harvest-invoices/sync-deals', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ skipPaidAndDealPaid: false }),
+            })
+            const data = await res.json()
+            if (res.ok) {
+                const r = data.results || {}
+                const errors: string[] = r.errors || []
+                const errorCount = errors.length || 0
+                const messageParts = [
+                    `Total with deals: ${r.totalWithDeals ?? 0}`,
+                    `Synced: ${r.synced ?? 0}`,
+                    `Skipped (paid + Deal✓): ${r.skippedPaidAndDealPaid ?? 0}`,
+                    `Failed: ${r.failed ?? 0}`,
+                ]
+                const message = errorCount > 0
+                    ? `${messageParts.join('\n')}\n\nErrors:\n${errors.slice(0, 10).join('\n')}${errorCount > 10 ? `\n...and ${errorCount - 10} more` : ''}`
+                    : messageParts.join('\n')
+
+                setModalConfig({
+                    isOpen: true,
+                    type: errorCount > 0 ? 'info' : 'success',
+                    title: 'Forced Deal Sync Results',
+                    message,
+                })
+                await fetchInvoices()
+            } else {
+                setModalConfig({
+                    isOpen: true,
+                    type: 'error',
+                    title: 'Forced Deal Sync Failed',
+                    message: data.error || 'Failed to force sync deals',
+                })
+            }
+        } catch (error: any) {
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Forced Deal Sync Error',
+                message: 'An error occurred: ' + (error.message || 'Unknown error'),
+            })
+        } finally {
+            setForceSyncingAllDeals(false)
         }
     }
 
@@ -261,6 +375,58 @@ export default function HarvestInvoices() {
                             />
                             <span>No Company Mapping</span>
                         </label>
+                        <button
+                            onClick={handleSyncAllDeals}
+                            disabled={syncingAllDeals || syncing}
+                            className={`px-4 py-1.5 rounded-lg font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${syncingAllDeals || syncing
+                                ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600'
+                                }`}
+                            title="Sync all Harvest invoices to their HubSpot deals"
+                        >
+                            {syncingAllDeals ? (
+                                <>
+                                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span className="text-sm">Syncing Deals...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+                                    </svg>
+                                    <span className="text-sm">Sync Deals</span>
+                                </>
+                            )}
+                        </button>
+                        <button
+                            onClick={handleForceSyncAllDeals}
+                            disabled={forceSyncingAllDeals || syncingAllDeals || syncing}
+                            className={`px-4 py-1.5 rounded-lg font-semibold text-white transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 ${forceSyncingAllDeals || syncingAllDeals || syncing
+                                ? 'bg-slate-600 text-slate-300 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600'
+                                }`}
+                            title="Force sync all deals (including paid invoices already marked Deal✓)"
+                        >
+                            {forceSyncingAllDeals ? (
+                                <>
+                                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span className="text-sm">Forcing...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+                                    </svg>
+                                    <span className="text-sm">Force Sync Deals</span>
+                                </>
+                            )}
+                        </button>
                         <button
                             onClick={handleSync}
                             disabled={syncing}
@@ -560,6 +726,82 @@ export default function HarvestInvoices() {
                                 className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all active:scale-95"
                             >
                                 Sync Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Sync Deals Confirmation Modal */}
+            {showSyncAllDealsConfirm && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowSyncAllDealsConfirm(false)}>
+                    <div className="bg-slate-800 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600">
+                                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-100">Sync All Deals</h3>
+                                <p className="text-slate-500 text-sm">Update HubSpot deals from invoice data</p>
+                            </div>
+                        </div>
+                        <p className="text-slate-600 mb-6">
+                            This will sync all HubSpot deals for invoices that already have a deal. Draft invoices are skipped.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowSyncAllDealsConfirm(false)}
+                                className="flex-1 px-4 py-3 bg-slate-700 text-slate-500 rounded-xl font-semibold hover:bg-slate-600 transition-all active:scale-95"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmSyncAllDeals}
+                                className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-semibold hover:from-indigo-600 hover:to-purple-600 transition-all active:scale-95"
+                            >
+                                Sync Deals Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Force Sync Deals Confirmation Modal */}
+            {showForceSyncAllDealsConfirm && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowForceSyncAllDealsConfirm(false)}>
+                    <div className="bg-slate-800 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-600">
+                                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-100">Force Sync All Deals</h3>
+                                <p className="text-slate-500 text-sm">Includes invoices already marked Deal✓</p>
+                            </div>
+                        </div>
+                        <p className="text-slate-600 mb-6">
+                            This will sync all HubSpot deals for invoices that already have a deal, even if the invoice is paid and already marked Deal✓. Use this if you changed rules (like deal naming) and want to re-apply them everywhere.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowForceSyncAllDealsConfirm(false)}
+                                className="flex-1 px-4 py-3 bg-slate-700 text-slate-500 rounded-xl font-semibold hover:bg-slate-600 transition-all active:scale-95"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmForceSyncAllDeals}
+                                className="flex-1 px-4 py-3 bg-gradient-to-r from-rose-500 to-orange-500 text-white rounded-xl font-semibold hover:from-rose-600 hover:to-orange-600 transition-all active:scale-95"
+                            >
+                                Force Sync
                             </button>
                         </div>
                     </div>
