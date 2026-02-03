@@ -26,8 +26,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 id: true,
                 state: true,
                 hubspotDealId: true,
-                dealPaidSynced: true as any,
-            } as any,
+                dealPaidSynced: true,
+            },
         })
 
         const results = {
@@ -48,7 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 }
 
                 // Optimization: once both the invoice and deal are paid-synced, skip.
-                if (skipPaidAndDealPaid && stateLower === 'paid' && (invoice as any).dealPaidSynced === true) {
+                if (skipPaidAndDealPaid && stateLower === 'paid' && invoice.dealPaidSynced === true) {
                     results.skippedPaidAndDealPaid++
                     continue
                 }
