@@ -304,6 +304,43 @@ describe('hubspotService', () => {
 
       await expect(createDealFromHarvestInvoice(1)).rejects.toThrow('Rate Limit Error')
     })
+
+    it('should mark paid deals as synced and set paid stage', async () => {
+      const paidDate = new Date('2024-02-01')
+      mockPrisma.harvestInvoice.findUnique.mockResolvedValue({
+        id: 1,
+        harvestId: '123',
+        number: 'INV-001',
+        state: 'paid',
+        clientName: 'Client A',
+        subject: 'Test Invoice',
+        amount: 1000,
+        currency: 'USD',
+        issueDate: new Date('2024-01-01'),
+        paidDate,
+        harvestCompanyId: 1,
+        hubspotDealId: null
+      } as any)
+
+      await createDealFromHarvestInvoice(1)
+
+      expect(mockHubSpotClient.crm.deals.basicApi.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          properties: expect.objectContaining({
+            dealstage: '1269293338',
+            closedate: paidDate.toISOString(),
+          }),
+        })
+      )
+      expect(mockPrisma.harvestInvoice.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: expect.objectContaining({
+          hubspotDealId: 'deal-123',
+          dealPaidSynced: true,
+          dealPaidSyncedAt: expect.any(Date),
+        })
+      })
+    })
   })
 
   describe('syncDealFromHarvestInvoice', () => {
@@ -391,6 +428,35 @@ describe('hubspotService', () => {
       mockHubSpotClient.crm.deals.basicApi.update.mockRejectedValue(rateLimitError)
 
       await expect(syncDealFromHarvestInvoice(1)).rejects.toThrow('Rate Limit Error')
+    })
+
+    it('should update dealPaidSynced when invoice is paid', async () => {
+      mockPrisma.harvestInvoice.findUnique.mockResolvedValue({
+        id: 1,
+        harvestId: '123',
+        number: 'INV-001',
+        state: 'paid',
+        hubspotDealId: 'deal-123',
+        clientName: 'Client A',
+        subject: 'Test Invoice',
+        amount: 1000,
+        currency: 'USD',
+        issueDate: new Date('2024-01-01'),
+        paidDate: new Date('2024-02-01'),
+        harvestCompanyId: 1
+      } as any)
+
+      mockPrisma.harvestInvoice.update.mockResolvedValue({} as any)
+
+      await syncDealFromHarvestInvoice(1)
+
+      expect(mockPrisma.harvestInvoice.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: {
+          dealPaidSynced: true,
+          dealPaidSyncedAt: expect.any(Date),
+        }
+      })
     })
   })
 })
