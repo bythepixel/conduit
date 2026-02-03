@@ -10,6 +10,15 @@ export interface ProcessLogResult {
     meetingNoteId?: number
 }
 
+interface FetchAndSyncOptions {
+    notesRetry?: {
+        attempts: number
+        delayMs: number
+    }
+}
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
 export class FirefliesService {
     /**
      * Processes a FireHookLog entry, fetches meeting details from Fireflies,
@@ -38,7 +47,12 @@ export class FirefliesService {
                 return { success: false, error: errorMessage }
             }
 
-            const result = await this.fetchAndSyncMeeting(fireHookLog.meetingId)
+            const result = await this.fetchAndSyncMeeting(fireHookLog.meetingId, {
+                notesRetry: {
+                    attempts: 3,
+                    delayMs: 2000,
+                },
+            })
 
             if (result.success) {
                 // Mark log as processed
@@ -68,81 +82,21 @@ export class FirefliesService {
      * Fetches meeting details from Fireflies by meetingId and syncs them to the MeetingNote model.
      * Does not require a FireHookLog.
      */
-    static async fetchAndSyncMeeting(meetingId: string): Promise<ProcessLogResult> {
+    static async fetchAndSyncMeeting(meetingId: string, options?: FetchAndSyncOptions): Promise<ProcessLogResult> {
         try {
             const apiKey = getEnv('FIREFLIES_API_KEY', '')
             if (!apiKey) {
                 return { success: false, error: 'FIREFLIES_API_KEY environment variable is not set' }
             }
 
-            // Fetch the meeting from Fireflies API
-            let transcript: any = null
+            const fetchTranscriptByIdOrFallback = async (): Promise<{ transcript: any | null; error?: string }> => {
+                // Fetch the meeting from Fireflies API
+                let transcript: any = null
 
-            // First, try fetching by ID
-            const queryById = `
-                query GetTranscript($id: String!) {
-                    transcript(id: $id) {
-                        id
-                        title
-                        transcript_url
-                        summary {
-                            action_items
-                            outline
-                            keywords
-                            short_summary
-                        }
-                        participants
-                        duration
-                        date
-                    }
-                }
-            `
-
-            console.log(`[FirefliesService] Attempting to fetch meeting ${meetingId} from Fireflies API`)
-
-            let response = await fetch(FIREFLIES_GRAPHQL_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    query: queryById,
-                    variables: { id: meetingId }
-                })
-            })
-
-            if (response.ok) {
-                const result = await response.json()
-
-                if (result.errors) {
-                    console.log('[FirefliesService] GraphQL errors when fetching by ID:', result.errors)
-                    // If there are GraphQL errors, don't try fallback - the query itself is likely invalid
-                    const errorMessages = result.errors.map((e: any) => e.message || 'Unknown error').join('; ')
-                    return { success: false, error: `Firefly GraphQL Error: ${errorMessages}` }
-                } else if (result.data?.transcript) {
-                    transcript = result.data.transcript
-                    console.log(`[FirefliesService] Successfully fetched meeting by ID: ${transcript.id}`)
-                } else {
-                    console.log('[FirefliesService] No transcript found in response when fetching by ID')
-                }
-            } else {
-                const errorText = await response.text()
-                console.log(`[FirefliesService] HTTP error when fetching by ID (${response.status}):`, errorText)
-                
-                // If it's a 400 (bad request), don't try fallback - the query is likely invalid
-                if (response.status === 400) {
-                    return { success: false, error: `Firefly API Error: ${response.status} - ${errorText}` }
-                }
-            }
-
-            // If fetching by ID didn't work (fallback logic from original code)
-            if (!transcript) {
-                console.log('[FirefliesService] Fetching all transcripts to find matching meeting as fallback')
-
-                const queryAll = `
-                    query GetTranscripts($limit: Int) {
-                        transcripts(limit: $limit) {
+                // First, try fetching by ID
+                const queryById = `
+                    query GetTranscript($id: String!) {
+                        transcript(id: $id) {
                             id
                             title
                             transcript_url
@@ -159,38 +113,125 @@ export class FirefliesService {
                     }
                 `
 
-                response = await fetch(FIREFLIES_GRAPHQL_URL, {
+                console.log(`[FirefliesService] Attempting to fetch meeting ${meetingId} from Fireflies API`)
+
+                let response = await fetch(FIREFLIES_GRAPHQL_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${apiKey}`
                     },
                     body: JSON.stringify({
-                        query: queryAll,
-                        variables: { limit: 50 }
+                        query: queryById,
+                        variables: { id: meetingId }
                     })
                 })
 
-                if (!response.ok) {
+                if (response.ok) {
+                    const result = await response.json()
+
+                    if (result.errors) {
+                        console.log('[FirefliesService] GraphQL errors when fetching by ID:', result.errors)
+                        // If there are GraphQL errors, don't try fallback - the query itself is likely invalid
+                        const errorMessages = result.errors.map((e: any) => e.message || 'Unknown error').join('; ')
+                        return { transcript: null, error: `Firefly GraphQL Error: ${errorMessages}` }
+                    } else if (result.data?.transcript) {
+                        transcript = result.data.transcript
+                        console.log(`[FirefliesService] Successfully fetched meeting by ID: ${transcript.id}`)
+                    } else {
+                        console.log('[FirefliesService] No transcript found in response when fetching by ID')
+                    }
+                } else {
                     const errorText = await response.text()
-                    console.error(`[FirefliesService] HTTP error in fallback query (${response.status}):`, errorText)
-                    return { success: false, error: `Firefly API Error: ${response.status} - ${errorText}` }
+                    console.log(`[FirefliesService] HTTP error when fetching by ID (${response.status}):`, errorText)
+                    
+                    // If it's a 400 (bad request), don't try fallback - the query is likely invalid
+                    if (response.status === 400) {
+                        return { transcript: null, error: `Firefly API Error: ${response.status} - ${errorText}` }
+                    }
                 }
 
-                const result = await response.json()
+                // If fetching by ID didn't work (fallback logic from original code)
+                if (!transcript) {
+                    console.log('[FirefliesService] Fetching all transcripts to find matching meeting as fallback')
 
-                if (result.errors) {
-                    const errorMessages = result.errors.map((e: any) => e.message || 'Unknown error').join('; ')
-                    console.error('[FirefliesService] GraphQL errors in fallback query:', result.errors)
-                    return { success: false, error: `Firefly GraphQL Error: ${errorMessages}` }
+                    const queryAll = `
+                        query GetTranscripts($limit: Int) {
+                            transcripts(limit: $limit) {
+                                id
+                                title
+                                transcript_url
+                                summary {
+                                    action_items
+                                    outline
+                                    keywords
+                                    short_summary
+                                }
+                                participants
+                                duration
+                                date
+                            }
+                        }
+                    `
+
+                    response = await fetch(FIREFLIES_GRAPHQL_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify({
+                            query: queryAll,
+                            variables: { limit: 50 }
+                        })
+                    })
+
+                    if (!response.ok) {
+                        const errorText = await response.text()
+                        console.error(`[FirefliesService] HTTP error in fallback query (${response.status}):`, errorText)
+                        return { transcript: null, error: `Firefly API Error: ${response.status} - ${errorText}` }
+                    }
+
+                    const result = await response.json()
+
+                    if (result.errors) {
+                        const errorMessages = result.errors.map((e: any) => e.message || 'Unknown error').join('; ')
+                        console.error('[FirefliesService] GraphQL errors in fallback query:', result.errors)
+                        return { transcript: null, error: `Firefly GraphQL Error: ${errorMessages}` }
+                    }
+
+                    const transcripts = result.data?.transcripts || []
+                    transcript = transcripts.find((t: any) => t.id === meetingId) || null
                 }
 
-                const transcripts = result.data?.transcripts || []
-                transcript = transcripts.find((t: any) => t.id === meetingId)
+                return { transcript }
             }
 
-            if (!transcript) {
-                return { success: false, error: `Meeting not found in Fireflies: ${meetingId}` }
+            const retryAttempts = options?.notesRetry?.attempts ?? 1
+            const retryDelayMs = options?.notesRetry?.delayMs ?? 0
+
+            let transcript: any = null
+            let notesText: string | null = null
+
+            for (let attempt = 1; attempt <= retryAttempts; attempt++) {
+                const fetchResult = await fetchTranscriptByIdOrFallback()
+                if (fetchResult.error) {
+                    return { success: false, error: fetchResult.error }
+                }
+                transcript = fetchResult.transcript
+                if (!transcript) {
+                    return { success: false, error: `Meeting not found in Fireflies: ${meetingId}` }
+                }
+
+                notesText = transcript.summary?.short_summary || null
+                if (notesText || attempt === retryAttempts) {
+                    break
+                }
+
+                console.log(`[FirefliesService] Notes not ready for meeting ${meetingId}, retrying (${attempt}/${retryAttempts})`)
+                if (retryDelayMs > 0) {
+                    await sleep(retryDelayMs)
+                }
             }
 
             // Extract participants
@@ -248,7 +289,6 @@ export class FirefliesService {
             const transcriptUrl = transcript.transcript_url || null
 
             // Handle notes - use short_summary from the API (same as Fetch Notes button)
-            let notesText: string | null = null
             if (transcript.summary?.short_summary) {
                 notesText = transcript.summary.short_summary
                 console.log(`[FirefliesService] Found notes (short_summary) for meeting ${meetingId}: ${notesText?.substring(0, 100)}...`)
@@ -307,7 +347,9 @@ export class FirefliesService {
             // Auto-sync to HubSpot if:
             // 1. Meeting note has a HubSpot company relationship (check the actual meeting note's hubspotCompanyId)
             // 2. All participants are internal (have bythepixel.com email addresses)
-            if (meetingNote.hubspotCompanyId && this.isInternalMeeting(participants)) {
+            // 3. Notes (short_summary) were successfully saved
+            const hasNotes = typeof meetingNote.notes === 'string' && meetingNote.notes.trim().length > 0
+            if (meetingNote.hubspotCompanyId && hasNotes && this.isInternalMeeting(participants)) {
                 try {
                     console.log(`[FirefliesService] Auto-syncing internal meeting ${meetingId} to HubSpot`)
                     await syncMeetingNoteToHubSpot(meetingNote.id)
